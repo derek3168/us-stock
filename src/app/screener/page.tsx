@@ -59,20 +59,62 @@ export default function ScreenerPage() {
     return () => clearInterval(id);
   }, [scanning, loadScreener]);
 
+  const runCloudChunks = useCallback(async () => {
+    let loops = 0;
+    const maxLoops = 35;
+    while (loops < maxLoops) {
+      const res = await fetch("/api/scan", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "掃描失敗");
+      await loadScreener();
+      if (!json.scanning) return;
+      loops++;
+    }
+    throw new Error("掃描逾時，請稍後重試");
+  }, [loadScreener]);
+
   const startScan = async () => {
     setScanning(true);
     setError("");
     try {
-      const res = await fetch("/api/scan", { method: "POST" });
-      const json = await res.json();
-      if (!res.ok && res.status !== 202) throw new Error(json.error ?? "掃描失敗");
+      const isLocal =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1");
+
+      if (isLocal) {
+        const res = await fetch("/api/scan?sync=1", { method: "POST" });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "掃描失敗");
+        await loadScreener();
+        setScanning(false);
+        return;
+      }
+
+      await fetch("/api/scan?restart=1", { method: "POST" });
       await loadScreener();
-      if (res.status === 200) setScanning(false);
+      await runCloudChunks();
+      setScanning(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "掃描失敗");
       setScanning(false);
     }
   };
+
+  const resumeRef = useRef(false);
+  useEffect(() => {
+    if (data?.scanning && !scanning && !resumeRef.current) {
+      resumeRef.current = true;
+      setScanning(true);
+      runCloudChunks()
+        .then(() => loadScreener())
+        .catch((e) => setError(e instanceof Error ? e.message : "掃描失敗"))
+        .finally(() => {
+          setScanning(false);
+          resumeRef.current = false;
+        });
+    }
+  }, [data?.scanning, scanning, runCloudChunks, loadScreener]);
 
   const filteredRows = useMemo(() => {
     if (!data?.results.length) return [];
@@ -140,7 +182,7 @@ export default function ScreenerPage() {
         {!data?.scannedAt && !scanning && (
           <div className="mb-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
             尚未掃描。點擊「開始掃描」將對 503 檔 S&P 500 成分股計算四指標（約 3–8
-            分鐘，請保持頁面開啟）。
+            分鐘）。雲端部署時請保持此頁面開啟直至完成。
           </div>
         )}
 

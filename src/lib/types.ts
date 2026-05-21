@@ -54,7 +54,7 @@ export type ScreenerSnapshot = {
   scannedAt: string | null;
   scanStartedAt?: string | null;
   scanning: boolean;
-  progress: { done: number; total: number; failed: string[] };
+  progress: { done: number; total: number; failed: string[]; offset?: number };
   results: ScanResultItem[];
 };
 

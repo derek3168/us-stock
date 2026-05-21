@@ -1,65 +1,67 @@
-# 分享給朋友 — 兩種方式
+# 分享給朋友 — 永久網址（Vercel）+ 完整 503 檔掃描
 
-## 方式 A：臨時連結（最快，約 1 分鐘）
+## 部署步驟
 
-適合：今天先給朋友試，你電腦開著、已跑 `npm run dev`。
-
-```bash
-cd "/Users/derekchan/US stock"
-npm run dev
-```
-
-另開一個終端：
-
-```bash
-npx localtunnel --port 3000
-```
-
-終端會顯示類似 `https://xxxx.loca.lt` 的網址，把這個連結傳給朋友即可。
-
-注意：
-
-- 你關機或關掉 dev server，連結會失效
-- 首次打開可能要先掃描 S&P 500（約 3–8 分鐘）
-
----
-
-## 方式 B：永久網址（Vercel，24/7 在線）
-
-適合：長期分享，不需一直開著電腦。
-
-### 步驟
-
-1. 把專案推到 GitHub（私有或公開皆可）
+### 1. 推到 GitHub
 
 ```bash
 cd "/Users/derekchan/US stock"
-git init
 git add .
-git commit -m "US stock screener"
-# 在 GitHub 新建 repo 後：
+git commit -m "US stock screener with full S&P 500 scan"
+# 在 github.com 新建 repository
 git remote add origin https://github.com/你的帳號/us-stock.git
+git branch -M main
 git push -u origin main
 ```
 
-2. 打開 [vercel.com](https://vercel.com) → **Add New Project** → 選你的 repo → Deploy
+### 2. 部署到 Vercel
 
-3. 部署完成後會得到網址，例如：`https://us-stock-xxx.vercel.app`
+1. 打開 [vercel.com](https://vercel.com) 並登入  
+2. **Add New → Project** → 選你的 `us-stock` repo  
+3. 直接點 **Deploy**（無需改設定）  
+4. 部署完成後會自動建立 **Blob** 儲存（掃描結果用），並得到網址，例如：  
+   `https://us-stock-xxx.vercel.app`
 
-### 雲端版說明
+### 3. 分享給朋友
 
-| 功能 | 本機 | Vercel 免費版 |
-|------|------|----------------|
-| 單股詳情 / 自選 | 完整 | 完整 |
-| S&P 500 全量掃描 | 503 檔 | 預設約 **40 檔**（避免超時） |
-
-若要在雲端掃更多，在 Vercel 專案 **Settings → Environment Variables** 新增：
-
-- `SCAN_LIMIT` = `80`（數字越大越慢，免費方案建議 ≤ 50）
+| 頁面 | 網址 |
+|------|------|
+| S&P 500 篩選 | `https://你的網址/screener` |
+| 監控自選 | `https://你的網址/watchlist` |
+| 單股例：AAPL | `https://你的網址/stock/AAPL` |
 
 ---
 
-## 給朋友的入口
+## 503 檔掃描（雲端版）
 
-- 篩選器：`https://你的網址/screener`
-- 自選監控：`https://你的網址/watchlist`
+Vercel 單次請求有時間上限，因此改為 **分批掃描**（每批約 20 檔，共約 26 批）：
+
+1. 打開 `/screener`  
+2. 點 **「開始掃描 S&P 500」**  
+3. **保持頁面開啟** 約 5–10 分鐘，進度條會走到 503/503  
+4. 完成後結果會保存在 Vercel Blob，之後訪客無需重掃即可篩選  
+
+若關閉頁面中斷了掃描，重新打開 `/screener` 會自動從上次進度繼續。
+
+### 可選環境變數（Vercel → Settings → Environment Variables）
+
+| 變數 | 說明 | 預設 |
+|------|------|------|
+| `SCAN_CHUNK_SIZE` | 每批掃描檔數（越大越快，但易超時） | `20` |
+
+---
+
+## 本機開發
+
+```bash
+npm install
+npm run dev
+```
+
+本機 `localhost` 仍會一次掃完 503 檔（較快）。
+
+---
+
+## 免責
+
+本工具僅供學習與研究，不構成投資建議。行情來自 Yahoo Finance，可能有延時。

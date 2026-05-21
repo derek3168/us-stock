@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { readCache } from "@/lib/cache";
-import { runFullScan } from "@/lib/scanner";
+import { initScan, runScanChunk, runFullScanLocal } from "@/lib/scanner";
 
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 export async function GET() {
   const cache = await readCache();
@@ -10,34 +10,21 @@ export async function GET() {
     scannedAt: cache.scannedAt,
     scanning: cache.scanning,
     progress: cache.progress,
+    storage: process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "file",
   });
 }
 
 export async function POST(request: Request) {
-  const cache = await readCache();
-  if (cache.scanning) {
-    return NextResponse.json(
-      { message: "掃描進行中", scanning: true, progress: cache.progress },
-      { status: 202 }
-    );
-  }
-
   const url = new URL(request.url);
+  const restart = url.searchParams.get("restart") === "1";
   const sync = url.searchParams.get("sync") === "1";
 
-  const startScan = () => {
-    runFullScan().catch(async () => {
-      const c = await readCache();
-      const { writeCache } = await import("@/lib/cache");
-      await writeCache({ ...c, scanning: false });
-    });
-  };
-
-  if (sync) {
+  if (sync && !process.env.VERCEL) {
     try {
-      const snapshot = await runFullScan();
+      const snapshot = await runFullScanLocal();
       return NextResponse.json({
         message: "掃描完成",
+        scanning: false,
         scannedAt: snapshot.scannedAt,
         progress: snapshot.progress,
         count: snapshot.results.length,
@@ -48,9 +35,44 @@ export async function POST(request: Request) {
     }
   }
 
-  startScan();
-  return NextResponse.json(
-    { message: "已開始背景掃描，請稍候刷新", scanning: true },
-    { status: 202 }
-  );
+  let cache = await readCache();
+
+  if (restart) {
+    cache = await initScan();
+    return NextResponse.json({
+      message: "已開始掃描 503 檔",
+      scanning: true,
+      progress: cache.progress,
+    });
+  }
+
+  if (!cache.scanning) {
+    if (cache.results.length > 0 && cache.scannedAt) {
+      return NextResponse.json({
+        message: "已有掃描結果，若要重掃請加 ?restart=1",
+        scanning: false,
+        progress: cache.progress,
+        scannedAt: cache.scannedAt,
+      });
+    }
+    cache = await initScan();
+  }
+
+  try {
+    cache = await runScanChunk();
+    return NextResponse.json({
+      message: cache.scanning ? "批次完成，繼續中" : "掃描完成",
+      scanning: cache.scanning,
+      scannedAt: cache.scannedAt,
+      progress: cache.progress,
+      count: cache.results.length,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "掃描失敗";
+    const c = await readCache();
+    await import("@/lib/cache").then(({ writeCache }) =>
+      writeCache({ ...c, scanning: false })
+    );
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
