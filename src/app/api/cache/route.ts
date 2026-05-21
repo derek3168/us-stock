@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readCache, writeCache } from "@/lib/cache";
 import type { ScreenerSnapshot } from "@/lib/types";
+import { jsonNoStore } from "@/lib/api-headers";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   const cache = await readCache();
-  return NextResponse.json({
+  return jsonNoStore({
     ...cache,
     storage: process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "file",
     blobRequired: Boolean(process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN),

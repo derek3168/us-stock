@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSp500Symbols } from "@/lib/sp500";
 import { scanSymbol } from "@/lib/scanner";
-
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {

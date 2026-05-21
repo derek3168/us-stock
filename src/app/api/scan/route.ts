@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { readCache } from "@/lib/cache";
 import { initScan, runScanChunk, runFullScanLocal } from "@/lib/scanner";
-
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const maxDuration = 60;
 
 export async function GET() {

@@ -40,11 +40,26 @@ export default function ScreenerPage() {
 
   const loadScreener = useCallback(async () => {
     try {
-      const res = await fetch("/api/screener", { cache: "no-store" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "載入失敗");
-      setData(json as ScreenerResponse);
-      setBlobRequired(!!json.blobRequired);
+      const res = await fetch("/api/cache", { cache: "no-store" });
+      const cache = await res.json();
+      if (!res.ok) throw new Error(cache.error ?? "載入失敗");
+
+      const presetCounts: Record<string, number> = {};
+      const results = (cache.results ?? []) as ScanResultItem[];
+      for (const p of PRESETS) {
+        presetCounts[p] = filterAndSort(results, p, "score", "desc").length;
+      }
+
+      setData({
+        scannedAt: cache.scannedAt,
+        scanning: cache.scanning,
+        progress: cache.progress,
+        presetCounts,
+        results,
+        blobRequired: cache.blobRequired,
+        storage: cache.storage,
+      });
+      setBlobRequired(!!cache.blobRequired);
       setScanning(false);
       setError("");
     } catch (e) {

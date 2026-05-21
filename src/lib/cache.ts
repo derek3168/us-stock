@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { head, put } from "@vercel/blob";
+import { head, list, put } from "@vercel/blob";
 import type { ScreenerSnapshot, ScanResultItem } from "./types";
 
 const BLOB_CACHE_KEY = "screener-cache.json";
@@ -38,8 +38,16 @@ async function writeFileCache(snapshot: ScreenerSnapshot): Promise<void> {
 
 async function readBlobCache(): Promise<ScreenerSnapshot> {
   try {
-    const meta = await head(BLOB_CACHE_KEY);
-    const res = await fetch(meta.url, { cache: "no-store" });
+    let url: string | undefined;
+    try {
+      const meta = await head(BLOB_CACHE_KEY);
+      url = meta.url;
+    } catch {
+      const { blobs } = await list({ prefix: "screener-cache", limit: 1 });
+      url = blobs[0]?.url;
+    }
+    if (!url) return { ...EMPTY };
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return { ...EMPTY };
     return (await res.json()) as ScreenerSnapshot;
   } catch {
