@@ -117,6 +117,9 @@ export function buildIndicators(bars: OHLCV[]): IndicatorSnapshot {
   const ma10s = sma(closes, 10);
   const ma20s = sma(closes, 20);
   const ma50s = sma(closes, 50);
+  const ma60s = sma(closes, 60);
+  const ma120s = sma(closes, 120);
+  const ma200s = sma(closes, 200);
   const macd = calcMACD(closes);
   const kdj = calcKDJ(bars);
   const rsi5s = calcRSI(closes, 5);
@@ -127,6 +130,9 @@ export function buildIndicators(bars: OHLCV[]): IndicatorSnapshot {
     ma10: last(ma10s),
     ma20: last(ma20s),
     ma50: last(ma50s),
+    ma60: last(ma60s),
+    ma120: last(ma120s),
+    ma200: last(ma200s),
     macd: macd.last,
     kdj: kdj.last,
     rsi5: last(rsi5s),

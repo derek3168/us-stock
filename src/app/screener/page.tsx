@@ -18,6 +18,8 @@ type ScreenerResponse = {
 
 const PRESETS: FilterPreset[] = [
   "all",
+  "weighted_high",
+  "wuxian",
   "strong_buy",
   "buy",
   "hold",
@@ -25,6 +27,30 @@ const PRESETS: FilterPreset[] = [
   "pullback",
   "momentum",
 ];
+
+function normalizeResult(raw: ScanResultItem): ScanResultItem {
+  if (raw.weightedScore && raw.wuxian) return raw;
+  return {
+    ...raw,
+    weightedScore: raw.weightedScore ?? {
+      total: 0,
+      max: 16,
+      percent: 0,
+      breakdown: [],
+      summary: "請重新掃描",
+    },
+    wuxian: raw.wuxian ?? {
+      active: false,
+      maAligned: false,
+      priceAboveAll: false,
+      volumeOk: false,
+      spreadOk: false,
+      summary: "—",
+      riskNote: "",
+      detail: "舊資料需重掃",
+    },
+  };
+}
 
 const CHUNK = 20;
 
@@ -47,7 +73,7 @@ export default function ScreenerPage() {
       if (!res.ok) throw new Error(cache.error ?? "載入失敗");
 
       const presetCounts: Record<string, number> = {};
-      const results = (cache.results ?? []) as ScanResultItem[];
+      const results = ((cache.results ?? []) as ScanResultItem[]).map(normalizeResult);
       for (const p of PRESETS) {
         presetCounts[p] = filterAndSort(results, p, "score", "desc").length;
       }
@@ -181,7 +207,7 @@ export default function ScreenerPage() {
           <div>
             <h1 className="text-xl font-bold">S&P 500 指標篩選</h1>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              MA · MACD · KDJ · RSI · 1-20 天短線框架
+              加權評分排序 · 五線開花獨立指標 · MA/MACD/KDJ/RSI
             </p>
             {data?.scannedAt && !scanning && (
               <p className="mt-1 text-xs text-[var(--muted)]">

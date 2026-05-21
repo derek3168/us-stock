@@ -2,6 +2,8 @@ import type { OHLCV, StockAnalysis } from "./types";
 import { buildIndicators } from "./indicators";
 import { evaluateSignal } from "./signals";
 import { yahooFetchCandidates } from "./symbols";
+import { computeWeightedScore } from "./weighted-score";
+import { evaluateWuxianKaihua } from "./wuxian-kaihua";
 
 type YahooMeta = {
   symbol?: string;
@@ -76,7 +78,7 @@ async function fetchChartForSymbol(
 
 export async function fetchStockBars(
   symbol: string,
-  range: "3mo" | "6mo" | "1y" = "6mo"
+  range: "3mo" | "6mo" | "1y" = "1y"
 ): Promise<StockAnalysis> {
   const displaySymbol = symbol.trim().toUpperCase();
   let lastError: Error | null = null;
@@ -102,6 +104,8 @@ export async function fetchStockBars(
         bars,
         indicators: buildIndicators(bars),
         signal: evaluateSignal(bars),
+        weightedScore: computeWeightedScore(bars, price),
+        wuxian: evaluateWuxianKaihua(bars),
       };
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));

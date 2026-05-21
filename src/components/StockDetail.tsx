@@ -5,7 +5,8 @@ import type { StockAnalysis } from "@/lib/types";
 import { StockChart } from "@/components/StockChart";
 import { IndicatorCards } from "@/components/IndicatorCards";
 import { SignalPanel } from "@/components/SignalPanel";
-import { SIGNAL_LABELS } from "@/lib/signals";
+import { WeightedScorePanel } from "@/components/WeightedScorePanel";
+import { WuxianPanel } from "@/components/WuxianPanel";
 
 type Props = {
   symbol: string;
@@ -14,7 +15,7 @@ type Props = {
 
 export function StockDetail({ symbol, initial }: Props) {
   const [data, setData] = useState<StockAnalysis | null>(initial ?? null);
-  const [range, setRange] = useState<"3mo" | "6mo" | "1y">("6mo");
+  const [range, setRange] = useState<"3mo" | "6mo" | "1y">("1y");
   const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState("");
 
@@ -64,9 +65,15 @@ export function StockDetail({ symbol, initial }: Props) {
               {data.changePercent.toFixed(2)}% ({data.change >= 0 ? "+" : ""}
               {data.change.toFixed(2)})
             </span>
-            <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
-              {SIGNAL_LABELS[data.signal.level]}
+            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+              {data.weightedScore.total.toFixed(1)}/{data.weightedScore.max} ·{" "}
+              {data.weightedScore.summary}
             </span>
+            {data.wuxian.active && (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                五線開花
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-2">
@@ -89,13 +96,18 @@ export function StockDetail({ symbol, initial }: Props) {
 
       <StockChart bars={data.bars} symbol={data.symbol} />
 
-      <section className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SignalPanel signal={data.signal} />
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-[var(--muted)]">指標數值</h3>
-          <IndicatorCards ind={data.indicators} price={data.price} />
-        </div>
-      </section>
+            <section className="mt-4 grid gap-4 lg:grid-cols-2">
+              <WeightedScorePanel score={data.weightedScore} />
+              <WuxianPanel wuxian={data.wuxian} />
+            </section>
+
+            <section className="mt-4 grid gap-4 lg:grid-cols-2">
+              <SignalPanel signal={data.signal} />
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-[var(--muted)]">指標數值</h3>
+                <IndicatorCards ind={data.indicators} price={data.price} />
+              </div>
+            </section>
 
       <section className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 text-xs leading-relaxed text-[var(--muted)]">
         <strong className="text-[var(--text)]">實戰流程備忘</strong>

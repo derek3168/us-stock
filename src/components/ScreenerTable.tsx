@@ -57,7 +57,7 @@ export function ScreenerTable({ rows, sort, dir, onSort }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full min-w-[800px] text-left text-sm">
         <thead className="bg-[var(--panel)] text-xs text-[var(--muted)]">
           <tr>
             <th className="px-3 py-2">
@@ -69,23 +69,24 @@ export function ScreenerTable({ rows, sort, dir, onSort }: Props) {
               <SortHeader label="漲跌%" col="change" sort={sort} dir={dir} onSort={onSort} />
             </th>
             <th className="px-3 py-2">
-              <SortHeader label="評分" col="score" sort={sort} dir={dir} onSort={onSort} />
+              <SortHeader label="加權分" col="score" sort={sort} dir={dir} onSort={onSort} />
             </th>
-            <th className="px-3 py-2">訊號</th>
-            <th className="px-3 py-2">通過項</th>
+            <th className="px-3 py-2">五線開花</th>
+            <th className="px-3 py-2">綜合訊號</th>
             <th className="px-3 py-2" />
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => {
             const up = row.changePercent >= 0;
+            const ws = row.weightedScore;
             return (
               <tr
                 key={row.symbol}
                 className="border-t border-[var(--border)] hover:bg-white/[0.03]"
               >
                 <td className="px-3 py-2 font-semibold">{row.symbol}</td>
-                <td className="max-w-[140px] truncate px-3 py-2 text-[var(--muted)]">
+                <td className="max-w-[120px] truncate px-3 py-2 text-[var(--muted)]">
                   {row.name ?? "—"}
                 </td>
                 <td className="px-3 py-2 text-right font-mono">${row.price.toFixed(2)}</td>
@@ -95,11 +96,25 @@ export function ScreenerTable({ rows, sort, dir, onSort }: Props) {
                   {up ? "+" : ""}
                   {row.changePercent.toFixed(2)}%
                 </td>
-                <td className="px-3 py-2 font-mono">{row.signal.score}</td>
-                <td className={`px-3 py-2 ${LEVEL_CLASS[row.signal.level]}`}>
+                <td className="px-3 py-2">
+                  <span className="font-mono font-semibold text-emerald-400">
+                    {ws.total.toFixed(1)}
+                  </span>
+                  <span className="text-[var(--muted)]">/{ws.max}</span>
+                  <div className="text-[10px] text-[var(--muted)]">{ws.summary}</div>
+                </td>
+                <td className="px-3 py-2">
+                  {row.wuxian.active ? (
+                    <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-300">
+                      開花
+                    </span>
+                  ) : (
+                    <span className="text-xs text-[var(--muted)]">—</span>
+                  )}
+                </td>
+                <td className={`px-3 py-2 text-xs ${LEVEL_CLASS[row.signal.level]}`}>
                   {SIGNAL_LABELS[row.signal.level]}
                 </td>
-                <td className="px-3 py-2 text-[var(--muted)]">{row.entryPassed}/9</td>
                 <td className="px-3 py-2">
                   <Link
                     href={`/stock/${row.symbol}`}

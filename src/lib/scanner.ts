@@ -28,6 +28,8 @@ function toScanItem(analysis: StockAnalysis): ScanResultItem {
     indicators: analysis.indicators,
     signal: analysis.signal,
     entryPassed,
+    weightedScore: analysis.weightedScore,
+    wuxian: analysis.wuxian,
   };
 }
 
