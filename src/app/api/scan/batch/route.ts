@@ -15,20 +15,25 @@ export async function POST(request: NextRequest) {
   }
 
   const requested = body.symbols?.map((s) => s.trim().toUpperCase()).filter(Boolean) ?? [];
-  if (requested.length === 0 || requested.length > 25) {
+  if (requested.length === 0) {
+    return NextResponse.json({ error: "請提供至少 1 個代碼" }, { status: 400 });
+  }
+
+  const universe = parseUniverse(body.universe);
+  const maxBatch = universe === "hk_hsi" ? 8 : 25;
+  if (requested.length > maxBatch) {
     return NextResponse.json(
-      { error: "每次請求 1–25 個代碼" },
+      { error: universe === "hk_hsi" ? "港股每次請求 1–8 個代碼" : "每次請求 1–25 個代碼" },
       { status: 400 }
     );
   }
 
-  const universe = parseUniverse(body.universe);
   const nameMap = new Map(getUniverseSymbols(universe).map((s) => [s.symbol, s.name]));
   const results = [];
   const failed: string[] = [];
 
   for (const symbol of requested) {
-    const item = await scanSymbol(symbol);
+    const item = await scanSymbol(symbol, universe, nameMap.get(symbol));
     if (!item) {
       failed.push(symbol);
       continue;

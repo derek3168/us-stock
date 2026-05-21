@@ -1,10 +1,16 @@
 import type { WeightedScoreResult } from "@/lib/types";
 
-export function WeightedScorePanel({ score }: { score: WeightedScoreResult }) {
+export function WeightedScorePanel({
+  score,
+  title = "加權評分（越重要越前）",
+}: {
+  score: WeightedScoreResult;
+  title?: string;
+}) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">加權評分（越重要越前）</h3>
+        <h3 className="text-sm font-semibold">{title}</h3>
         <span className="font-mono text-lg font-bold text-emerald-400">
           {score.total.toFixed(1)} / {score.max}
         </span>

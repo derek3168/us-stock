@@ -23,6 +23,9 @@ npm run dev
 
 - `data/sp500.json` — S&P 500 成分列表（503 檔）
 - `data/nasdaq100.json` — NASDAQ 100 成分列表（約 101 檔）
+- `data/hk-hsi.json` — 恒生指數成分（約 78 檔，Yahoo 可行情）
+- `src/lib/hk-market.ts` — 港股多時間框架掃描（15/30/60 分 + 日/週）
+- `src/lib/hk-signals.ts` — 港股短線策略（EMA8/114、MACD 5,26,6、KDJ 32,33）
 - `src/lib/scanner.ts` — 批量掃描引擎
 - `src/lib/filters.ts` — 預設篩選策略
 - `src/lib/signals.ts` — 四指標綜合評分
