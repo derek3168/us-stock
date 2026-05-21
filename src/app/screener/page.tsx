@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppNav } from "@/components/AppNav";
 import { ScreenerTable } from "@/components/ScreenerTable";
 import { PRESET_LABELS, PRESET_DESCRIPTIONS, filterAndSort } from "@/lib/filters";
-import type { FilterPreset, ScanResultItem } from "@/lib/types";
+import type { FilterPreset, ScanResultItem, ScreenerSnapshot } from "@/lib/types";
 
 type ScreenerResponse = {
   scannedAt: string | null;
@@ -12,6 +12,8 @@ type ScreenerResponse = {
   progress: { done: number; total: number; failed: string[] };
   presetCounts: Record<string, number>;
   results: ScanResultItem[];
+  blobRequired?: boolean;
+  storage?: string;
 };
 
 const PRESETS: FilterPreset[] = [
@@ -24,27 +26,28 @@ const PRESETS: FilterPreset[] = [
   "momentum",
 ];
 
+const CHUNK = 20;
+
 export default function ScreenerPage() {
   const [preset, setPreset] = useState<FilterPreset>("all");
   const [sort, setSort] = useState<"score" | "change" | "symbol">("score");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [data, setData] = useState<ScreenerResponse | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState({ done: 0, total: 503, failed: [] as string[] });
   const [error, setError] = useState("");
-  const loadId = useRef(0);
+  const [blobRequired, setBlobRequired] = useState(false);
 
   const loadScreener = useCallback(async () => {
-    const id = ++loadId.current;
     try {
       const res = await fetch("/api/screener", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "載入失敗");
-      if (id !== loadId.current) return;
       setData(json as ScreenerResponse);
-      setScanning(json.scanning);
+      setBlobRequired(!!json.blobRequired);
+      setScanning(false);
       setError("");
     } catch (e) {
-      if (id !== loadId.current) return;
       setError(e instanceof Error ? e.message : "載入失敗");
     }
   }, []);
@@ -53,68 +56,84 @@ export default function ScreenerPage() {
     loadScreener();
   }, [loadScreener]);
 
-  useEffect(() => {
-    if (!scanning) return;
-    const id = setInterval(loadScreener, 2000);
-    return () => clearInterval(id);
-  }, [scanning, loadScreener]);
+  const runVercelScan = async () => {
+    const listRes = await fetch("/sp500-symbols.json");
+    const listJson = (await listRes.json()) as {
+      symbols: { symbol: string; name: string }[];
+    };
+    const symbols = listJson.symbols;
+    const total = symbols.length;
+    const allResults: ScanResultItem[] = [];
+    const failed: string[] = [];
 
-  const runCloudChunks = useCallback(async () => {
-    let loops = 0;
-    const maxLoops = 35;
-    while (loops < maxLoops) {
-      const res = await fetch("/api/scan", { method: "POST" });
+    setScanProgress({ done: 0, total, failed: [] });
+
+    for (let i = 0; i < symbols.length; i += CHUNK) {
+      const chunk = symbols.slice(i, i + CHUNK);
+      const res = await fetch("/api/scan/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbols: chunk.map((s) => s.symbol) }),
+      });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "掃描失敗");
-      await loadScreener();
-      if (!json.scanning) return;
-      loops++;
+      if (!res.ok) throw new Error(json.error ?? "批次掃描失敗");
+      allResults.push(...(json.results as ScanResultItem[]));
+      failed.push(...(json.failed as string[]));
+      setScanProgress({
+        done: Math.min(i + CHUNK, total),
+        total,
+        failed: [...failed],
+      });
     }
-    throw new Error("掃描逾時，請稍後重試");
-  }, [loadScreener]);
+
+    const snapshot: ScreenerSnapshot = {
+      scannedAt: new Date().toISOString(),
+      scanning: false,
+      progress: { done: total, total, failed, offset: total },
+      results: allResults,
+    };
+
+    const saveRes = await fetch("/api/cache", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snapshot),
+    });
+    const saveJson = await saveRes.json();
+    if (!saveRes.ok) {
+      throw new Error(saveJson.error ?? "無法保存掃描結果到雲端");
+    }
+  };
 
   const startScan = async () => {
     setScanning(true);
     setError("");
     try {
       const isLocal =
-        typeof window !== "undefined" &&
-        (window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1");
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
 
       if (isLocal) {
         const res = await fetch("/api/scan?sync=1", { method: "POST" });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "掃描失敗");
         await loadScreener();
-        setScanning(false);
         return;
       }
 
-      await fetch("/api/scan?restart=1", { method: "POST" });
+      if (blobRequired) {
+        throw new Error(
+          "請先在 Vercel 建立 Blob：專案 → Storage → Blob → Connect → Redeploy"
+        );
+      }
+
+      await runVercelScan();
       await loadScreener();
-      await runCloudChunks();
-      setScanning(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "掃描失敗");
+    } finally {
       setScanning(false);
     }
   };
-
-  const resumeRef = useRef(false);
-  useEffect(() => {
-    if (data?.scanning && !scanning && !resumeRef.current) {
-      resumeRef.current = true;
-      setScanning(true);
-      runCloudChunks()
-        .then(() => loadScreener())
-        .catch((e) => setError(e instanceof Error ? e.message : "掃描失敗"))
-        .finally(() => {
-          setScanning(false);
-          resumeRef.current = false;
-        });
-    }
-  }, [data?.scanning, scanning, runCloudChunks, loadScreener]);
 
   const filteredRows = useMemo(() => {
     if (!data?.results.length) return [];
@@ -130,10 +149,9 @@ export default function ScreenerPage() {
     }
   };
 
-  const progress = data?.progress;
   const pct =
-    progress && progress.total > 0
-      ? Math.round((progress.done / progress.total) * 100)
+    scanProgress.total > 0
+      ? Math.round((scanProgress.done / scanProgress.total) * 100)
       : 0;
 
   return (
@@ -146,11 +164,9 @@ export default function ScreenerPage() {
             <p className="mt-1 text-sm text-[var(--muted)]">
               MA · MACD · KDJ · RSI · 1-20 天短線框架
             </p>
-            {data?.scannedAt && (
+            {data?.scannedAt && !scanning && (
               <p className="mt-1 text-xs text-[var(--muted)]">
                 上次掃描：{new Date(data.scannedAt).toLocaleString("zh-TW")}
-                {data.scanning &&
-                  ` · 掃描中 ${pct}% (${progress?.done}/${progress?.total})`}
               </p>
             )}
           </div>
@@ -168,21 +184,35 @@ export default function ScreenerPage() {
           </button>
         </header>
 
+        {blobRequired && (
+          <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+            <strong>需要 Vercel Blob 儲存</strong>
+            <p className="mt-1 text-xs text-amber-200/80">
+              Vercel → 專案 us-stock → Storage → Create Blob → Connect to Project →
+              Redeploy。否則掃描結果無法保存（會顯示 0 檔）。
+            </p>
+          </div>
+        )}
+
         {scanning && (
-          <div className="mb-4 h-2 overflow-hidden rounded-full bg-[var(--border)]">
-            <div
-              className="h-full bg-blue-500 transition-all duration-300"
-              style={{ width: `${pct}%` }}
-            />
+          <div className="mb-4">
+            <div className="mb-1 text-xs text-[var(--muted)]">
+              掃描中 {scanProgress.done}/{scanProgress.total}（請保持頁面開啟）
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
+              <div
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
           </div>
         )}
 
         {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
-        {!data?.scannedAt && !scanning && (
+        {!data?.scannedAt && !scanning && !blobRequired && (
           <div className="mb-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
-            尚未掃描。點擊「開始掃描」將對 503 檔 S&P 500 成分股計算四指標（約 3–8
-            分鐘）。雲端部署時請保持此頁面開啟直至完成。
+            尚未掃描。點擊「開始掃描」將對 503 檔成分股計算四指標（約 5–10 分鐘）。
           </div>
         )}
 
@@ -209,12 +239,12 @@ export default function ScreenerPage() {
 
         <p className="mb-3 text-xs text-[var(--muted)]">{PRESET_DESCRIPTIONS[preset]}</p>
 
-        {data?.scannedAt && (
+        {(data?.scannedAt || scanning) && (
           <p className="mb-2 text-sm">
             符合 <strong className="text-[var(--text)]">{filteredRows.length}</strong> 檔
-            {preset === "strong_buy" && filteredRows.length === 0 && (
+            {preset === "strong_buy" && filteredRows.length === 0 && data?.scannedAt && (
               <span className="ml-2 text-[var(--muted)]">
-                （目前市場無「強烈買入」，可試「偏多試單」或「生命線回踩」）
+                （目前無「強烈買入」，可試「偏多試單」或「生命線回踩」）
               </span>
             )}
           </p>
@@ -227,10 +257,10 @@ export default function ScreenerPage() {
           onSort={handleSort}
         />
 
-        {progress && progress.failed.length > 0 && (
+        {scanProgress.failed.length > 0 && (
           <p className="mt-3 text-xs text-amber-400">
-            {progress.failed.length} 檔掃描失敗：{progress.failed.slice(0, 10).join(", ")}
-            {progress.failed.length > 10 ? "…" : ""}
+            {scanProgress.failed.length} 檔掃描失敗：
+            {scanProgress.failed.slice(0, 10).join(", ")}
           </p>
         )}
       </div>

@@ -27,5 +27,7 @@ export async function GET() {
     progress: cache.progress,
     presetCounts,
     results: cache.results,
+    storage: process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "file",
+    blobRequired: Boolean(process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN),
   });
 }

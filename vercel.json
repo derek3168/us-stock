@@ -1,8 +1,14 @@
 {
   "framework": "nextjs",
   "functions": {
+    "src/app/api/scan/batch/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/scan/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cache/route.ts": {
+      "maxDuration": 30
     },
     "src/app/api/stock/[symbol]/route.ts": {
       "maxDuration": 30

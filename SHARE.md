@@ -18,9 +18,12 @@ git push -u origin main
 
 1. 打開 [vercel.com](https://vercel.com) 並登入  
 2. **Add New → Project** → 選你的 `us-stock` repo  
-3. 直接點 **Deploy**（無需改設定）  
-4. 部署完成後會自動建立 **Blob** 儲存（掃描結果用），並得到網址，例如：  
-   `https://us-stock-xxx.vercel.app`
+3. 直接點 **Deploy**  
+4. **必做：建立 Blob 儲存**（否則掃描後會顯示 0 檔）  
+   - 進入專案 → **Storage** → **Create Database** → 選 **Blob**  
+   - 名稱隨意（如 `us-stock-blob`）→ **Connect to Project** → 選 `us-stock`  
+   - 回到 **Deployments** → 最新部署 ⋮ → **Redeploy**  
+5. 完成後網址例如：`https://us-stock-xxx.vercel.app`
 
 ### 3. 分享給朋友
 
