@@ -2,12 +2,9 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { head, list, put } from "@vercel/blob";
 import type { ScreenerSnapshot, ScanResultItem } from "./types";
+import { parseUniverse, type Universe } from "./universe";
 
-const BLOB_CACHE_KEY = "screener-cache.json";
-const CACHE_DIR = process.env.VERCEL
-  ? path.join("/tmp", "us-stock")
-  : path.join(process.cwd(), "data");
-const CACHE_FILE = path.join(CACHE_DIR, "screener-cache.json");
+const LEGACY_BLOB_KEY = "screener-cache.json";
 
 const EMPTY: ScreenerSnapshot = {
   scannedAt: null,
@@ -22,41 +19,72 @@ function isBlobStorageEnabled(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-async function readFileCache(): Promise<ScreenerSnapshot> {
-  try {
-    const raw = await readFile(CACHE_FILE, "utf-8");
-    return JSON.parse(raw) as ScreenerSnapshot;
-  } catch {
-    return { ...EMPTY };
+function blobKey(universe: Universe): string {
+  return `screener-cache-${universe}.json`;
+}
+
+function cacheFile(universe: Universe): string {
+  const CACHE_DIR = process.env.VERCEL
+    ? path.join("/tmp", "us-stock")
+    : path.join(process.cwd(), "data");
+  return path.join(CACHE_DIR, blobKey(universe));
+}
+
+async function readFileCache(universe: Universe): Promise<ScreenerSnapshot> {
+  const primary = cacheFile(universe);
+  const paths =
+    universe === "sp500" ? [primary, path.join(path.dirname(primary), LEGACY_BLOB_KEY)] : [primary];
+
+  for (const file of paths) {
+    try {
+      const raw = await readFile(file, "utf-8");
+      return JSON.parse(raw) as ScreenerSnapshot;
+    } catch {
+      /* try next */
+    }
   }
+  return { ...EMPTY };
 }
 
-async function writeFileCache(snapshot: ScreenerSnapshot): Promise<void> {
-  await mkdir(CACHE_DIR, { recursive: true });
-  await writeFile(CACHE_FILE, JSON.stringify(snapshot), "utf-8");
+async function writeFileCache(universe: Universe, snapshot: ScreenerSnapshot): Promise<void> {
+  const file = cacheFile(universe);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(snapshot), "utf-8");
 }
 
-async function readBlobCache(): Promise<ScreenerSnapshot> {
+async function readBlobByKey(key: string): Promise<ScreenerSnapshot | null> {
   try {
     let url: string | undefined;
     try {
-      const meta = await head(BLOB_CACHE_KEY);
+      const meta = await head(key);
       url = meta.url;
     } catch {
-      const { blobs } = await list({ prefix: "screener-cache", limit: 1 });
-      url = blobs[0]?.url;
+      const { blobs } = await list({ prefix: key.replace(".json", ""), limit: 1 });
+      url = blobs.find((b) => b.pathname === key || b.pathname.endsWith(key))?.url ?? blobs[0]?.url;
     }
-    if (!url) return { ...EMPTY };
+    if (!url) return null;
     const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return { ...EMPTY };
+    if (!res.ok) return null;
     return (await res.json()) as ScreenerSnapshot;
   } catch {
-    return { ...EMPTY };
+    return null;
   }
 }
 
-async function writeBlobCache(snapshot: ScreenerSnapshot): Promise<void> {
-  await put(BLOB_CACHE_KEY, JSON.stringify(snapshot), {
+async function readBlobCache(universe: Universe): Promise<ScreenerSnapshot> {
+  const primary = await readBlobByKey(blobKey(universe));
+  if (primary) return primary;
+
+  if (universe === "sp500") {
+    const legacy = await readBlobByKey(LEGACY_BLOB_KEY);
+    if (legacy) return legacy;
+  }
+
+  return { ...EMPTY };
+}
+
+async function writeBlobCache(universe: Universe, snapshot: ScreenerSnapshot): Promise<void> {
+  await put(blobKey(universe), JSON.stringify(snapshot), {
     access: "public",
     addRandomSuffix: false,
     contentType: "application/json",
@@ -73,31 +101,40 @@ function normalizeScanState(data: ScreenerSnapshot): ScreenerSnapshot {
   return data;
 }
 
-export async function readCache(): Promise<ScreenerSnapshot> {
-  const data = isBlobStorageEnabled() ? await readBlobCache() : await readFileCache();
+export async function readCache(universe: Universe = "sp500"): Promise<ScreenerSnapshot> {
+  const u = parseUniverse(universe);
+  const data = isBlobStorageEnabled() ? await readBlobCache(u) : await readFileCache(u);
   return normalizeScanState(data);
 }
 
-export async function writeCache(snapshot: ScreenerSnapshot): Promise<void> {
+export async function writeCache(
+  snapshot: ScreenerSnapshot,
+  universe: Universe = "sp500"
+): Promise<void> {
+  const u = parseUniverse(universe);
   if (isBlobStorageEnabled()) {
-    await writeBlobCache(snapshot);
+    await writeBlobCache(u, snapshot);
   } else {
-    await writeFileCache(snapshot);
+    await writeFileCache(u, snapshot);
   }
 }
 
 export async function updateCacheProgress(
-  partial: Partial<ScreenerSnapshot>
+  partial: Partial<ScreenerSnapshot>,
+  universe: Universe = "sp500"
 ): Promise<ScreenerSnapshot> {
-  const current = await readCache();
+  const current = await readCache(universe);
   const next = { ...current, ...partial };
-  await writeCache(next);
+  await writeCache(next, universe);
   return next;
 }
 
-export async function appendResult(item: ScanResultItem): Promise<void> {
-  const cache = await readCache();
+export async function appendResult(
+  item: ScanResultItem,
+  universe: Universe = "sp500"
+): Promise<void> {
+  const cache = await readCache(universe);
   cache.results.push(item);
   cache.progress.done = cache.results.length;
-  await writeCache(cache);
+  await writeCache(cache, universe);
 }

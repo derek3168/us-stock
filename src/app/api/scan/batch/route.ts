@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSp500Symbols } from "@/lib/sp500";
 import { scanSymbol } from "@/lib/scanner";
+import { getUniverseSymbols, parseUniverse } from "@/lib/universe";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  let body: { symbols?: string[] };
+  let body: { symbols?: string[]; universe?: string };
   try {
     body = await request.json();
   } catch {
@@ -21,7 +22,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const nameMap = new Map(getSp500Symbols().map((s) => [s.symbol, s.name]));
+  const universe = parseUniverse(body.universe);
+  const nameMap = new Map(getUniverseSymbols(universe).map((s) => [s.symbol, s.name]));
   const results = [];
   const failed: string[] = [];
 
@@ -34,5 +36,5 @@ export async function POST(request: NextRequest) {
     results.push({ ...item, name: item.name ?? nameMap.get(symbol) });
   }
 
-  return NextResponse.json({ results, failed });
+  return NextResponse.json({ universe, results, failed });
 }

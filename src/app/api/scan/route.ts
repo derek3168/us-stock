@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
-import { readCache } from "@/lib/cache";
+import { readCache, writeCache } from "@/lib/cache";
 import { initScan, runScanChunk, runFullScanLocal } from "@/lib/scanner";
+import { parseUniverse, UNIVERSE_LABELS } from "@/lib/universe";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 
-export async function GET() {
-  const cache = await readCache();
+function universeFromUrl(url: URL) {
+  return parseUniverse(url.searchParams.get("universe"));
+}
+
+export async function GET(request: Request) {
+  const universe = universeFromUrl(new URL(request.url));
+  const cache = await readCache(universe);
   return NextResponse.json({
+    universe,
     scannedAt: cache.scannedAt,
     scanning: cache.scanning,
     progress: cache.progress,
@@ -17,14 +25,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const url = new URL(request.url);
+  const universe = universeFromUrl(url);
   const restart = url.searchParams.get("restart") === "1";
   const sync = url.searchParams.get("sync") === "1";
+  const label = UNIVERSE_LABELS[universe];
 
   if (sync && !process.env.VERCEL) {
     try {
-      const snapshot = await runFullScanLocal();
+      const snapshot = await runFullScanLocal(universe);
       return NextResponse.json({
         message: "掃描完成",
+        universe,
         scanning: false,
         scannedAt: snapshot.scannedAt,
         progress: snapshot.progress,
@@ -36,12 +47,13 @@ export async function POST(request: Request) {
     }
   }
 
-  let cache = await readCache();
+  let cache = await readCache(universe);
 
   if (restart) {
-    cache = await initScan();
+    cache = await initScan(universe);
     return NextResponse.json({
-      message: "已開始掃描 503 檔",
+      message: `已開始掃描 ${label}`,
+      universe,
       scanning: true,
       progress: cache.progress,
     });
@@ -51,18 +63,20 @@ export async function POST(request: Request) {
     if (cache.results.length > 0 && cache.scannedAt) {
       return NextResponse.json({
         message: "已有掃描結果，若要重掃請加 ?restart=1",
+        universe,
         scanning: false,
         progress: cache.progress,
         scannedAt: cache.scannedAt,
       });
     }
-    cache = await initScan();
+    cache = await initScan(universe);
   }
 
   try {
-    cache = await runScanChunk();
+    cache = await runScanChunk(universe);
     return NextResponse.json({
       message: cache.scanning ? "批次完成，繼續中" : "掃描完成",
+      universe,
       scanning: cache.scanning,
       scannedAt: cache.scannedAt,
       progress: cache.progress,
@@ -70,10 +84,8 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "掃描失敗";
-    const c = await readCache();
-    await import("@/lib/cache").then(({ writeCache }) =>
-      writeCache({ ...c, scanning: false })
-    );
+    const c = await readCache(universe);
+    await writeCache({ ...c, scanning: false }, universe);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

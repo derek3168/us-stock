@@ -1,0 +1,410 @@
+{
+  "updatedAt": "2026-05-21",
+  "count": 101,
+  "symbols": [
+    {
+      "symbol": "ADBE",
+      "name": "ADBE"
+    },
+    {
+      "symbol": "AMD",
+      "name": "AMD"
+    },
+    {
+      "symbol": "ABNB",
+      "name": "ABNB"
+    },
+    {
+      "symbol": "ALNY",
+      "name": "ALNY"
+    },
+    {
+      "symbol": "GOOGL",
+      "name": "GOOGL"
+    },
+    {
+      "symbol": "GOOG",
+      "name": "GOOG"
+    },
+    {
+      "symbol": "AMZN",
+      "name": "AMZN"
+    },
+    {
+      "symbol": "AEP",
+      "name": "AEP"
+    },
+    {
+      "symbol": "AMGN",
+      "name": "AMGN"
+    },
+    {
+      "symbol": "ADI",
+      "name": "ADI"
+    },
+    {
+      "symbol": "AAPL",
+      "name": "AAPL"
+    },
+    {
+      "symbol": "AMAT",
+      "name": "AMAT"
+    },
+    {
+      "symbol": "APP",
+      "name": "APP"
+    },
+    {
+      "symbol": "ARM",
+      "name": "ARM"
+    },
+    {
+      "symbol": "ASML",
+      "name": "ASML"
+    },
+    {
+      "symbol": "ADSK",
+      "name": "ADSK"
+    },
+    {
+      "symbol": "ADP",
+      "name": "ADP"
+    },
+    {
+      "symbol": "AXON",
+      "name": "AXON"
+    },
+    {
+      "symbol": "BKR",
+      "name": "BKR"
+    },
+    {
+      "symbol": "BKNG",
+      "name": "BKNG"
+    },
+    {
+      "symbol": "AVGO",
+      "name": "AVGO"
+    },
+    {
+      "symbol": "CDNS",
+      "name": "CDNS"
+    },
+    {
+      "symbol": "CHTR",
+      "name": "CHTR"
+    },
+    {
+      "symbol": "CTAS",
+      "name": "CTAS"
+    },
+    {
+      "symbol": "CSCO",
+      "name": "CSCO"
+    },
+    {
+      "symbol": "CCEP",
+      "name": "CCEP"
+    },
+    {
+      "symbol": "CTSH",
+      "name": "CTSH"
+    },
+    {
+      "symbol": "CMCSA",
+      "name": "CMCSA"
+    },
+    {
+      "symbol": "CEG",
+      "name": "CEG"
+    },
+    {
+      "symbol": "CPRT",
+      "name": "CPRT"
+    },
+    {
+      "symbol": "CSGP",
+      "name": "CSGP"
+    },
+    {
+      "symbol": "COST",
+      "name": "COST"
+    },
+    {
+      "symbol": "CRWD",
+      "name": "CRWD"
+    },
+    {
+      "symbol": "CSX",
+      "name": "CSX"
+    },
+    {
+      "symbol": "DDOG",
+      "name": "DDOG"
+    },
+    {
+      "symbol": "DXCM",
+      "name": "DXCM"
+    },
+    {
+      "symbol": "FANG",
+      "name": "FANG"
+    },
+    {
+      "symbol": "DASH",
+      "name": "DASH"
+    },
+    {
+      "symbol": "EA",
+      "name": "EA"
+    },
+    {
+      "symbol": "EXC",
+      "name": "EXC"
+    },
+    {
+      "symbol": "FAST",
+      "name": "FAST"
+    },
+    {
+      "symbol": "FER",
+      "name": "FER"
+    },
+    {
+      "symbol": "FTNT",
+      "name": "FTNT"
+    },
+    {
+      "symbol": "GEHC",
+      "name": "GEHC"
+    },
+    {
+      "symbol": "GILD",
+      "name": "GILD"
+    },
+    {
+      "symbol": "HON",
+      "name": "HON"
+    },
+    {
+      "symbol": "IDXX",
+      "name": "IDXX"
+    },
+    {
+      "symbol": "INSM",
+      "name": "INSM"
+    },
+    {
+      "symbol": "INTC",
+      "name": "INTC"
+    },
+    {
+      "symbol": "INTU",
+      "name": "INTU"
+    },
+    {
+      "symbol": "ISRG",
+      "name": "ISRG"
+    },
+    {
+      "symbol": "KDP",
+      "name": "KDP"
+    },
+    {
+      "symbol": "KLAC",
+      "name": "KLAC"
+    },
+    {
+      "symbol": "KHC",
+      "name": "KHC"
+    },
+    {
+      "symbol": "LRCX",
+      "name": "LRCX"
+    },
+    {
+      "symbol": "LIN",
+      "name": "LIN"
+    },
+    {
+      "symbol": "MAR",
+      "name": "MAR"
+    },
+    {
+      "symbol": "MRVL",
+      "name": "MRVL"
+    },
+    {
+      "symbol": "MELI",
+      "name": "MELI"
+    },
+    {
+      "symbol": "META",
+      "name": "META"
+    },
+    {
+      "symbol": "MCHP",
+      "name": "MCHP"
+    },
+    {
+      "symbol": "MU",
+      "name": "MU"
+    },
+    {
+      "symbol": "MSFT",
+      "name": "MSFT"
+    },
+    {
+      "symbol": "MSTR",
+      "name": "MSTR"
+    },
+    {
+      "symbol": "MDLZ",
+      "name": "MDLZ"
+    },
+    {
+      "symbol": "MPWR",
+      "name": "MPWR"
+    },
+    {
+      "symbol": "MNST",
+      "name": "MNST"
+    },
+    {
+      "symbol": "NFLX",
+      "name": "NFLX"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVDA"
+    },
+    {
+      "symbol": "NXPI",
+      "name": "NXPI"
+    },
+    {
+      "symbol": "ORLY",
+      "name": "ORLY"
+    },
+    {
+      "symbol": "ODFL",
+      "name": "ODFL"
+    },
+    {
+      "symbol": "PCAR",
+      "name": "PCAR"
+    },
+    {
+      "symbol": "PLTR",
+      "name": "PLTR"
+    },
+    {
+      "symbol": "PANW",
+      "name": "PANW"
+    },
+    {
+      "symbol": "PAYX",
+      "name": "PAYX"
+    },
+    {
+      "symbol": "PYPL",
+      "name": "PYPL"
+    },
+    {
+      "symbol": "PDD",
+      "name": "PDD"
+    },
+    {
+      "symbol": "PEP",
+      "name": "PEP"
+    },
+    {
+      "symbol": "QCOM",
+      "name": "QCOM"
+    },
+    {
+      "symbol": "REGN",
+      "name": "REGN"
+    },
+    {
+      "symbol": "ROP",
+      "name": "ROP"
+    },
+    {
+      "symbol": "ROST",
+      "name": "ROST"
+    },
+    {
+      "symbol": "SNDK",
+      "name": "SNDK"
+    },
+    {
+      "symbol": "STX",
+      "name": "STX"
+    },
+    {
+      "symbol": "SHOP",
+      "name": "SHOP"
+    },
+    {
+      "symbol": "SBUX",
+      "name": "SBUX"
+    },
+    {
+      "symbol": "SNPS",
+      "name": "SNPS"
+    },
+    {
+      "symbol": "TMUS",
+      "name": "TMUS"
+    },
+    {
+      "symbol": "TTWO",
+      "name": "TTWO"
+    },
+    {
+      "symbol": "TSLA",
+      "name": "TSLA"
+    },
+    {
+      "symbol": "TXN",
+      "name": "TXN"
+    },
+    {
+      "symbol": "TRI",
+      "name": "TRI"
+    },
+    {
+      "symbol": "VRSK",
+      "name": "VRSK"
+    },
+    {
+      "symbol": "VRTX",
+      "name": "VRTX"
+    },
+    {
+      "symbol": "WMT",
+      "name": "WMT"
+    },
+    {
+      "symbol": "WBD",
+      "name": "WBD"
+    },
+    {
+      "symbol": "WDC",
+      "name": "WDC"
+    },
+    {
+      "symbol": "WDAY",
+      "name": "WDAY"
+    },
+    {
+      "symbol": "XEL",
+      "name": "XEL"
+    },
+    {
+      "symbol": "ZS",
+      "name": "ZS"
+    }
+  ]
+}

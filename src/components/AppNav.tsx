@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/screener", label: "S&P 500 篩選" },
+  { href: "/screener", label: "市場篩選" },
   { href: "/watchlist", label: "監控自選" },
 ];
 

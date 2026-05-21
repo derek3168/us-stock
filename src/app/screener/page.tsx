@@ -5,6 +5,13 @@ import { AppNav } from "@/components/AppNav";
 import { ScreenerTable } from "@/components/ScreenerTable";
 import { PRESET_LABELS, PRESET_DESCRIPTIONS, filterAndSort } from "@/lib/filters";
 import type { FilterPreset, ScanResultItem, ScreenerSnapshot } from "@/lib/types";
+import {
+  UNIVERSES,
+  UNIVERSE_LABELS,
+  UNIVERSE_SYMBOLS_JSON,
+  getUniverseSymbolCount,
+  type Universe,
+} from "@/lib/universe-shared";
 
 type ScreenerResponse = {
   scannedAt: string | null;
@@ -55,22 +62,31 @@ function normalizeResult(raw: ScanResultItem): ScanResultItem {
 const CHUNK = 20;
 
 export default function ScreenerPage() {
+  const [universe, setUniverse] = useState<Universe>("sp500");
   const [preset, setPreset] = useState<FilterPreset>("all");
   const [sort, setSort] = useState<"score" | "change" | "symbol">("score");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [data, setData] = useState<ScreenerResponse | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState({ done: 0, total: 503, failed: [] as string[] });
+  const [scanProgress, setScanProgress] = useState({
+    done: 0,
+    total: getUniverseSymbolCount("sp500"),
+    failed: [] as string[],
+  });
   const [error, setError] = useState("");
   const [blobRequired, setBlobRequired] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadScreener = useCallback(async () => {
+  const universeLabel = UNIVERSE_LABELS[universe];
+  const symbolTotal = getUniverseSymbolCount(universe);
+
+  const loadScreener = useCallback(async (u: Universe, signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/cache", { cache: "no-store" });
+      const res = await fetch(`/api/cache?universe=${u}`, { cache: "no-store", signal });
       const cache = await res.json();
       if (!res.ok) throw new Error(cache.error ?? "載入失敗");
+      if (signal?.aborted) return;
 
       const presetCounts: Record<string, number> = {};
       const results = ((cache.results ?? []) as ScanResultItem[]).map(normalizeResult);
@@ -91,18 +107,27 @@ export default function ScreenerPage() {
       setScanning(false);
       setError("");
     } catch (e) {
+      if (signal?.aborted) return;
       setError(e instanceof Error ? e.message : "載入失敗");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadScreener();
-  }, [loadScreener]);
+    const ac = new AbortController();
+    setScanProgress({ done: 0, total: getUniverseSymbolCount(universe), failed: [] });
+    loadScreener(universe, ac.signal);
+    return () => ac.abort();
+  }, [universe, loadScreener]);
 
-  const runVercelScan = async () => {
-    const listRes = await fetch("/sp500-symbols.json");
+  const runVercelScan = async (u: Universe) => {
+    const listRes = await fetch(UNIVERSE_SYMBOLS_JSON[u]);
+    if (!listRes.ok) {
+      throw new Error(
+        `無法載入 ${UNIVERSE_LABELS[u]} 成分列表（HTTP ${listRes.status}）。請確認網站已部署最新版本。`
+      );
+    }
     const listJson = (await listRes.json()) as {
       symbols: { symbol: string; name: string }[];
     };
@@ -118,7 +143,10 @@ export default function ScreenerPage() {
       const res = await fetch("/api/scan/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbols: chunk.map((s) => s.symbol) }),
+        body: JSON.stringify({
+          universe: u,
+          symbols: chunk.map((s) => s.symbol),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "批次掃描失敗");
@@ -138,7 +166,7 @@ export default function ScreenerPage() {
       results: allResults,
     };
 
-    const saveRes = await fetch("/api/cache", {
+    const saveRes = await fetch(`/api/cache?universe=${u}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(snapshot),
@@ -152,16 +180,19 @@ export default function ScreenerPage() {
   const startScan = async () => {
     setScanning(true);
     setError("");
+    setScanProgress({ done: 0, total: symbolTotal, failed: [] });
     try {
       const isLocal =
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1";
 
       if (isLocal) {
-        const res = await fetch("/api/scan?sync=1", { method: "POST" });
+        const res = await fetch(`/api/scan?sync=1&universe=${universe}`, {
+          method: "POST",
+        });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "掃描失敗");
-        await loadScreener();
+        await loadScreener(universe);
         return;
       }
 
@@ -171,8 +202,8 @@ export default function ScreenerPage() {
         );
       }
 
-      await runVercelScan();
-      await loadScreener();
+      await runVercelScan(universe);
+      await loadScreener(universe);
     } catch (e) {
       setError(e instanceof Error ? e.message : "掃描失敗");
     } finally {
@@ -205,13 +236,14 @@ export default function ScreenerPage() {
       <div className="mx-auto max-w-7xl p-4">
         <header className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold">S&P 500 指標篩選</h1>
+            <h1 className="text-xl font-bold">美股指標篩選</h1>
             <p className="mt-1 text-sm text-[var(--muted)]">
               加權評分排序 · 五線開花獨立指標 · MA/MACD/KDJ/RSI
             </p>
             {data?.scannedAt && !scanning && (
               <p className="mt-1 text-xs text-[var(--muted)]">
-                上次掃描：{new Date(data.scannedAt).toLocaleString("zh-TW")}
+                {universeLabel} · 上次掃描：
+                {new Date(data.scannedAt).toLocaleString("zh-TW")}
               </p>
             )}
           </div>
@@ -224,10 +256,29 @@ export default function ScreenerPage() {
             {scanning
               ? `掃描中 ${pct}%…`
               : data?.scannedAt
-                ? "重新掃描 S&P 500"
-                : "開始掃描 S&P 500"}
+                ? `重新掃描 ${universeLabel}`
+                : `開始掃描 ${universeLabel}`}
           </button>
         </header>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {UNIVERSES.map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setUniverse(u)}
+              disabled={scanning}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                universe === u
+                  ? "bg-blue-600 text-white"
+                  : "border border-[var(--border)] text-[var(--muted)] hover:border-blue-500/50"
+              }`}
+            >
+              {UNIVERSE_LABELS[u]}
+              <span className="ml-1 opacity-70">({getUniverseSymbolCount(u)})</span>
+            </button>
+          ))}
+        </div>
 
         {blobRequired && (
           <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
@@ -242,7 +293,7 @@ export default function ScreenerPage() {
         {scanning && (
           <div className="mb-4">
             <div className="mb-1 text-xs text-[var(--muted)]">
-              掃描中 {scanProgress.done}/{scanProgress.total}（請保持頁面開啟）
+              掃描 {universeLabel} {scanProgress.done}/{scanProgress.total}（請保持頁面開啟）
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
               <div
@@ -257,13 +308,14 @@ export default function ScreenerPage() {
 
         {loading && !scanning && (
           <div className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
-            正在載入掃描結果（約 500 檔，需幾秒鐘）…
+            正在載入 {universeLabel} 掃描結果…
           </div>
         )}
 
         {!loading && !data?.scannedAt && !scanning && !blobRequired && (
           <div className="mb-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
-            尚未掃描。點擊「開始掃描」將對 503 檔成分股計算四指標（約 5–10 分鐘）。
+            尚未掃描 {universeLabel}。點擊「開始掃描」將對 {symbolTotal} 檔成分股計算四指標
+            {universe === "sp500" ? "（約 5–10 分鐘）" : "（約 2–4 分鐘）"}。
           </div>
         )}
 

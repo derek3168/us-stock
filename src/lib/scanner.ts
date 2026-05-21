@@ -1,7 +1,7 @@
 import type { ScanResultItem, ScreenerSnapshot, StockAnalysis } from "./types";
 import { fetchStockBars } from "./market";
-import { getSp500Symbols } from "./sp500";
 import { readCache, writeCache } from "./cache";
+import { getUniverseSymbolCount, getUniverseSymbols, type Universe } from "./universe";
 
 const FETCH_BATCH = 8;
 const BATCH_DELAY_MS = 200;
@@ -46,12 +46,12 @@ export async function scanSymbol(symbol: string): Promise<ScanResultItem | null>
   }
 }
 
-export function getTotalSymbols(): number {
-  return getSp500Symbols().length;
+export function getTotalSymbols(universe: Universe = "sp500"): number {
+  return getUniverseSymbolCount(universe);
 }
 
-export async function initScan(): Promise<ScreenerSnapshot> {
-  const total = getTotalSymbols();
+export async function initScan(universe: Universe = "sp500"): Promise<ScreenerSnapshot> {
+  const total = getTotalSymbols(universe);
   const snapshot: ScreenerSnapshot = {
     scannedAt: null,
     scanStartedAt: new Date().toISOString(),
@@ -59,15 +59,15 @@ export async function initScan(): Promise<ScreenerSnapshot> {
     progress: { done: 0, total, failed: [], offset: 0 },
     results: [],
   };
-  await writeCache(snapshot);
+  await writeCache(snapshot, universe);
   return snapshot;
 }
 
-/** 處理下一批股票（Vercel 與前端輪詢皆用此方式，可掃滿 503 檔） */
-export async function runScanChunk(): Promise<ScreenerSnapshot> {
-  const allSymbols = getSp500Symbols();
+/** 處理下一批股票（Vercel 與前端輪詢皆用此方式） */
+export async function runScanChunk(universe: Universe = "sp500"): Promise<ScreenerSnapshot> {
+  const allSymbols = getUniverseSymbols(universe);
   const total = allSymbols.length;
-  const cache = await readCache();
+  const cache = await readCache(universe);
   const offset = cache.progress.offset ?? 0;
 
   if (!cache.scanning) {
@@ -82,7 +82,7 @@ export async function runScanChunk(): Promise<ScreenerSnapshot> {
       scanning: false,
       progress: { ...cache.progress, done: total },
     };
-    await writeCache(done);
+    await writeCache(done, universe);
     return done;
   }
 
@@ -126,16 +126,16 @@ export async function runScanChunk(): Promise<ScreenerSnapshot> {
     results,
   };
 
-  await writeCache(snapshot);
+  await writeCache(snapshot, universe);
   return snapshot;
 }
 
 /** 本機一次性掃完（僅 ?sync=1） */
-export async function runFullScanLocal(): Promise<ScreenerSnapshot> {
-  await initScan();
-  let cache = await readCache();
+export async function runFullScanLocal(universe: Universe = "sp500"): Promise<ScreenerSnapshot> {
+  await initScan(universe);
+  let cache = await readCache(universe);
   while (cache.scanning) {
-    cache = await runScanChunk();
+    cache = await runScanChunk(universe);
   }
   return cache;
 }
