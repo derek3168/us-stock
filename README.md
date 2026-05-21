@@ -21,7 +21,8 @@ npm run dev
 
 ## 架構
 
-- `data/sp500.json` — S&P 500 成分列表
+- `data/sp500.json` — S&P 500 成分列表（503 檔）
+- `data/nasdaq100.json` — NASDAQ 100 成分列表（約 101 檔）
 - `src/lib/scanner.ts` — 批量掃描引擎
 - `src/lib/filters.ts` — 預設篩選策略
 - `src/lib/signals.ts` — 四指標綜合評分
