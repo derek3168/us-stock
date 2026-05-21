@@ -37,8 +37,10 @@ export default function ScreenerPage() {
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 503, failed: [] as string[] });
   const [error, setError] = useState("");
   const [blobRequired, setBlobRequired] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadScreener = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch("/api/cache", { cache: "no-store" });
       const cache = await res.json();
@@ -64,6 +66,8 @@ export default function ScreenerPage() {
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "載入失敗");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -225,7 +229,13 @@ export default function ScreenerPage() {
 
         {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
-        {!data?.scannedAt && !scanning && !blobRequired && (
+        {loading && !scanning && (
+          <div className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
+            正在載入掃描結果（約 500 檔，需幾秒鐘）…
+          </div>
+        )}
+
+        {!loading && !data?.scannedAt && !scanning && !blobRequired && (
           <div className="mb-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
             尚未掃描。點擊「開始掃描」將對 503 檔成分股計算四指標（約 5–10 分鐘）。
           </div>
@@ -254,7 +264,7 @@ export default function ScreenerPage() {
 
         <p className="mb-3 text-xs text-[var(--muted)]">{PRESET_DESCRIPTIONS[preset]}</p>
 
-        {(data?.scannedAt || scanning) && (
+        {!loading && (data?.scannedAt || scanning) && (
           <p className="mb-2 text-sm">
             符合 <strong className="text-[var(--text)]">{filteredRows.length}</strong> 檔
             {preset === "strong_buy" && filteredRows.length === 0 && data?.scannedAt && (
@@ -265,12 +275,14 @@ export default function ScreenerPage() {
           </p>
         )}
 
-        <ScreenerTable
-          rows={filteredRows}
-          sort={sort}
-          dir={dir}
-          onSort={handleSort}
-        />
+        {!loading && (
+          <ScreenerTable
+            rows={filteredRows}
+            sort={sort}
+            dir={dir}
+            onSort={handleSort}
+          />
+        )}
 
         {scanProgress.failed.length > 0 && (
           <p className="mt-3 text-xs text-amber-400">

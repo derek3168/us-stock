@@ -13,7 +13,7 @@ export function AppNav() {
 
   return (
     <nav className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--panel)] px-4 py-2">
-      <span className="mr-4 text-sm font-bold">美股短線雷達</span>
+      <span className="mr-4 text-sm font-bold">選股神器</span>
       {links.map((l) => (
         <Link
           key={l.href}
