@@ -41,7 +41,9 @@ export function HkIndicatorCards({ ind, price }: { ind: IndicatorSnapshot; price
       ))}
       <div className="col-span-2 rounded-lg border border-[var(--border)] bg-[var(--panel)] px-3 py-2 sm:col-span-3 lg:col-span-4">
         <span className="text-[10px] text-[var(--muted)]">15 分鐘 EMA</span>
-        <div className={`text-sm font-semibold ${emaBull ? "text-emerald-400" : "text-red-400"}`}>
+        <div
+          className={`text-sm font-semibold ${emaBull ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
+        >
           {emaBull ? "EMA8 在 EMA114 上方 · 偏多" : "EMA8 未站上 EMA114 · 觀望"}
         </div>
         <div className="mt-1 text-[10px] text-[var(--muted)]">現價 {price.toFixed(2)} HKD</div>

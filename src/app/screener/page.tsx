@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/AppNav";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ScreenerTable } from "@/components/ScreenerTable";
 import { HkScreenerTable } from "@/components/HkScreenerTable";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { useShellNav, useThemeToggle } from "@/components/layout/AppShell";
+import { ScreenerKpiRow } from "@/components/dashboard/ScreenerKpiRow";
+import { SignalDistributionChart } from "@/components/dashboard/SignalDistributionChart";
+import { ScoreDistributionChart } from "@/components/dashboard/ScoreDistributionChart";
 import { PRESET_LABELS, PRESET_DESCRIPTIONS, filterAndSort } from "@/lib/filters";
 import {
   HK_PRESET_LABELS,
@@ -11,14 +16,21 @@ import {
   filterAndSortHk,
   type HkFilterPreset,
 } from "@/lib/hk-filters";
+import { CACHE_SCHEMA_VERSION } from "@/lib/cache-version";
+import { computeScreenerStats, exportRowsToCsv } from "@/lib/screener-stats";
+import {
+  addToWatchlist,
+  entryKey,
+  loadWatchlist,
+  type WatchlistEntry,
+} from "@/lib/watchlist-storage";
 import type { FilterPreset, ScanResultItem, ScreenerSnapshot } from "@/lib/types";
 import {
-  US_UNIVERSES,
-  HK_UNIVERSES,
   UNIVERSE_LABELS,
   UNIVERSE_SYMBOLS_JSON,
   getUniverseSymbolCount,
   isHkUniverse,
+  parseUniverse,
   type Universe,
 } from "@/lib/universe-shared";
 
@@ -29,7 +41,7 @@ type ScreenerResponse = {
   presetCounts: Record<string, number>;
   results: ScanResultItem[];
   blobRequired?: boolean;
-  storage?: string;
+  schemaVersion?: number;
 };
 
 const US_PRESETS: FilterPreset[] = [
@@ -81,8 +93,15 @@ function normalizeResult(raw: ScanResultItem): ScanResultItem {
 const US_CHUNK = 20;
 const HK_CHUNK = 4;
 
-export default function ScreenerPage() {
-  const [universe, setUniverse] = useState<Universe>("sp500");
+function ScreenerContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { openMenu } = useShellNav();
+  const { dark, toggle: toggleTheme } = useThemeToggle();
+
+  const [universe, setUniverse] = useState<Universe>(() =>
+    parseUniverse(searchParams.get("universe"))
+  );
   const [usPreset, setUsPreset] = useState<FilterPreset>("all");
   const [hkPreset, setHkPreset] = useState<HkFilterPreset>("all");
   const [sort, setSort] = useState<"score" | "change" | "symbol">("score");
@@ -97,10 +116,46 @@ export default function ScreenerPage() {
   const [error, setError] = useState("");
   const [blobRequired, setBlobRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [symbolQuery, setSymbolQuery] = useState("");
+  const [watchlistKeys, setWatchlistKeys] = useState<Set<string>>(new Set());
+  const [schemaVersion, setSchemaVersion] = useState<number | undefined>();
 
   const isHk = isHkUniverse(universe);
   const universeLabel = UNIVERSE_LABELS[universe];
   const symbolTotal = getUniverseSymbolCount(universe);
+
+  const setUniverseAndUrl = useCallback(
+    (u: Universe) => {
+      setUniverse(u);
+      router.replace(`/screener?universe=${u}`, { scroll: false });
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    const u = parseUniverse(searchParams.get("universe"));
+    setUniverse(u);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const keys = new Set(loadWatchlist().map((e) => entryKey(e)));
+    setWatchlistKeys(keys);
+  }, []);
+
+  const refreshWatchlistKeys = useCallback(() => {
+    setWatchlistKeys(new Set(loadWatchlist().map((e) => entryKey(e))));
+  }, []);
+
+  const handleAddWatchlist = useCallback(
+    (symbol: string) => {
+      const entry: WatchlistEntry = { symbol, market: isHk ? "hk" : "us" };
+      if (addToWatchlist(entry)) refreshWatchlistKeys();
+    },
+    [isHk, refreshWatchlistKeys]
+  );
+
+  const schemaStale =
+    schemaVersion != null && schemaVersion < CACHE_SCHEMA_VERSION && !scanning;
 
   const loadScreener = useCallback(async (u: Universe, signal?: AbortSignal) => {
     setLoading(true);
@@ -123,6 +178,8 @@ export default function ScreenerPage() {
         }
       }
 
+      setSchemaVersion(cache.schemaVersion);
+
       setData({
         scannedAt: cache.scannedAt,
         scanning: cache.scanning,
@@ -130,7 +187,7 @@ export default function ScreenerPage() {
         presetCounts,
         results,
         blobRequired: cache.blobRequired,
-        storage: cache.storage,
+        schemaVersion: cache.schemaVersion,
       });
       setBlobRequired(!!cache.blobRequired);
       setScanning(false);
@@ -154,7 +211,7 @@ export default function ScreenerPage() {
     const listRes = await fetch(UNIVERSE_SYMBOLS_JSON[u]);
     if (!listRes.ok) {
       throw new Error(
-        `無法載入 ${UNIVERSE_LABELS[u]} 成分列表（HTTP ${listRes.status}）。請確認網站已部署最新版本。`
+        `無法載入 ${UNIVERSE_LABELS[u]} 成分列表（HTTP ${listRes.status}）。請確認已部署最新版本。`
       );
     }
     const listJson = (await listRes.json()) as {
@@ -194,6 +251,8 @@ export default function ScreenerPage() {
       scanning: false,
       progress: { done: total, total, failed, offset: total },
       results: allResults,
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      universe: u,
     };
 
     const saveRes = await fetch(`/api/cache?universe=${u}`, {
@@ -243,9 +302,30 @@ export default function ScreenerPage() {
 
   const filteredRows = useMemo(() => {
     if (!data?.results.length) return [];
-    if (isHk) return filterAndSortHk(data.results, hkPreset, sort, dir);
-    return filterAndSort(data.results, usPreset, sort, dir);
-  }, [data?.results, isHk, hkPreset, usPreset, sort, dir]);
+    let rows = isHk
+      ? filterAndSortHk(data.results, hkPreset, sort, dir)
+      : filterAndSort(data.results, usPreset, sort, dir);
+    const q = symbolQuery.trim().toUpperCase();
+    if (q) {
+      rows = rows.filter(
+        (r) =>
+          r.symbol.toUpperCase().includes(q) ||
+          (r.name ?? "").toUpperCase().includes(q)
+      );
+    }
+    return rows;
+  }, [data?.results, isHk, hkPreset, usPreset, sort, dir, symbolQuery]);
+
+  const dashboardStats = useMemo(() => {
+    if (!data?.results) {
+      return computeScreenerStats([], universe, symbolTotal);
+    }
+    return computeScreenerStats(
+      data.results,
+      universe,
+      data.progress?.total || symbolTotal
+    );
+  }, [data?.results, data?.progress?.total, universe, symbolTotal]);
 
   const handleSort = (col: "score" | "change" | "symbol") => {
     if (sort === col) {
@@ -256,206 +336,255 @@ export default function ScreenerPage() {
     }
   };
 
+  const exportCsv = () => {
+    if (!filteredRows.length) return;
+    const csv = exportRowsToCsv(filteredRows, isHk);
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `screener-${universe}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const pct =
     scanProgress.total > 0
       ? Math.round((scanProgress.done / scanProgress.total) * 100)
       : 0;
 
+  const hasData = Boolean(data?.scannedAt && data.results.length > 0);
+  const showSkeleton = loading && !scanning;
+  const showEmpty = !loading && !data?.scannedAt && !scanning && !blobRequired;
+
   const scanEta = isHk
-    ? "（約 8–15 分鐘，每檔需拉 5 個時間框架）"
+    ? "約 8–15 分鐘"
     : universe === "sp500"
-      ? "（約 5–10 分鐘）"
-      : "（約 2–4 分鐘）";
+      ? "約 5–10 分鐘"
+      : "約 2–4 分鐘";
 
   return (
-    <div className="min-h-screen">
-      <AppNav />
-      <div className="mx-auto max-w-7xl p-4">
-        <header className="mb-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold">選股神器 · 市場篩選</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {isHk
-                ? "港股短線：15/30/60 分 + 日/週 · EMA8/114 · MACD(5,26,6) · KDJ(32,33)"
-                : "美股：加權評分 · 五線開花 · MA/MACD/KDJ/RSI"}
-            </p>
-            {data?.scannedAt && !scanning && (
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {universeLabel} · 上次掃描：
-                {new Date(data.scannedAt).toLocaleString("zh-TW")}
-              </p>
+    <div className="p-4 lg:p-6">
+      <PageHeader
+        title={`${universeLabel} 篩選`}
+        subtitle={
+          isHk
+            ? "15/30/60 分 + 日/週 · EMA8/114 · MACD(5,26,6) · KDJ(32,33)"
+            : "加權評分 · 五線開花 · MA/MACD/KDJ/RSI"
+        }
+        universe={universe}
+        onUniverseChange={setUniverseAndUrl}
+        scannedAt={data?.scannedAt}
+        onMenuOpen={openMenu}
+        actions={
+          <>
+            <button type="button" onClick={toggleTheme} className="btn-secondary px-3 py-2 text-sm">
+              {dark ? "淺色" : "深色"}
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={!filteredRows.length}
+              className="btn-secondary px-3 py-2 text-sm disabled:opacity-50"
+            >
+              匯出 CSV
+            </button>
+            <button
+              type="button"
+              onClick={startScan}
+              disabled={scanning}
+              className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {scanning
+                ? `掃描中 ${pct}%`
+                : data?.scannedAt
+                  ? "重新掃描"
+                  : "開始掃描"}
+            </button>
+          </>
+        }
+      />
+
+      {schemaStale && (
+        <div className="mb-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-bg)] p-4 text-sm">
+          <strong>掃描結果版本較舊</strong>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            算法已更新（美股改為 1 年日線、Yahoo 重試等），請重新掃描以獲得準確訊號。
+          </p>
+        </div>
+      )}
+
+      {blobRequired && (
+        <div className="mb-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-bg)] p-4 text-sm">
+          <strong>需要 Vercel Blob 儲存</strong>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Storage → Blob → Connect → Redeploy
+          </p>
+        </div>
+      )}
+
+      {scanning && (
+        <div className="card mb-6 p-4">
+          <div className="mb-2 flex justify-between text-xs text-[var(--muted)]">
+            <span>
+              掃描 {universeLabel} {scanProgress.done}/{scanProgress.total}
+              {isHk && " · 每檔 5 次行情"}
+            </span>
+            <span>{pct}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
+            <div
+              className="h-full rounded-full bg-[var(--brand)] transition-all duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p className="mb-4 rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">
+          {error}
+        </p>
+      )}
+
+      <ScreenerKpiRow
+        kpis={dashboardStats.kpis}
+        loading={showSkeleton || (scanning && !hasData)}
+      />
+
+      <div className="mb-6 grid gap-4 lg:grid-cols-2">
+        <SignalDistributionChart
+          title="訊號分布"
+          bars={dashboardStats.signalBars}
+          loading={showSkeleton}
+          empty={!hasData && !scanning}
+        />
+        <ScoreDistributionChart
+          title={isHk ? "共振分分布" : "加權分分布"}
+          buckets={dashboardStats.scoreBuckets}
+          loading={showSkeleton}
+          empty={!hasData && !scanning}
+        />
+      </div>
+
+      {showEmpty && (
+        <div className="card mb-6 border-dashed p-8 text-center">
+          <p className="text-sm font-medium text-[var(--text)]">尚未掃描 {universeLabel}</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            點擊「開始掃描」將對 {symbolTotal} 檔計算
+            {isHk ? "多週期港股策略" : "技術指標"}（{scanEta}）
+          </p>
+          <button type="button" onClick={startScan} className="btn-primary mt-4 px-6 py-2 text-sm">
+            開始掃描
+          </button>
+        </div>
+      )}
+
+      <div className="card overflow-hidden">
+        <div className="border-b border-[var(--border)] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">篩選結果</h2>
+            <input
+              type="search"
+              value={symbolQuery}
+              onChange={(e) => setSymbolQuery(e.target.value)}
+              placeholder="搜尋代碼或名稱…"
+              className="w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--panel)] px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[var(--brand)]/30 sm:w-48"
+            />
+            {!loading && (hasData || scanning) && (
+              <span className="text-sm text-[var(--muted)]">
+                符合 <strong className="text-[var(--text)]">{filteredRows.length}</strong> 檔
+              </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={startScan}
-            disabled={scanning}
-            className={`rounded-lg px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 ${
-              isHk ? "bg-rose-600 hover:bg-rose-500" : "bg-blue-600 hover:bg-blue-500"
-            }`}
-          >
-            {scanning
-              ? `掃描中 ${pct}%…`
-              : data?.scannedAt
-                ? `重新掃描 ${universeLabel}`
-                : `開始掃描 ${universeLabel}`}
-          </button>
-        </header>
-
-        <div className="mb-3 text-xs font-medium text-[var(--muted)]">美股</div>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {US_UNIVERSES.map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => setUniverse(u)}
-              disabled={scanning}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
-                universe === u
-                  ? "bg-blue-600 text-white"
-                  : "border border-[var(--border)] text-[var(--muted)] hover:border-blue-500/50"
-              }`}
-            >
-              {UNIVERSE_LABELS[u]}
-              <span className="ml-1 opacity-70">({getUniverseSymbolCount(u)})</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-3 text-xs font-medium text-[var(--muted)]">港股</div>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {HK_UNIVERSES.map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => setUniverse(u)}
-              disabled={scanning}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
-                universe === u
-                  ? "bg-rose-600 text-white"
-                  : "border border-[var(--border)] text-[var(--muted)] hover:border-rose-500/50"
-              }`}
-            >
-              {UNIVERSE_LABELS[u]}
-              <span className="ml-1 opacity-70">({getUniverseSymbolCount(u)})</span>
-            </button>
-          ))}
-        </div>
-
-        {isHk && (
-          <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-[var(--muted)]">
-            <strong className="text-rose-200">港股策略摘要</strong>
-            <p className="mt-1">
-              僅在週/日/60/30 分多頭共振時做多；15 分 EMA8 金叉 EMA114 + MACD + KDJ 確認後入場。
-              止損約 -1.5%~2%，分批止盈 +3%/+6%，持倉不超過 3 個交易日。
-            </p>
+          <div className="flex flex-wrap gap-2">
+            {isHk
+              ? HK_PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setHkPreset(p)}
+                    title={HK_PRESET_DESCRIPTIONS[p]}
+                    className={`rounded-full px-3 py-1.5 text-xs transition ${
+                      hkPreset === p
+                        ? "bg-[var(--brand)] text-white"
+                        : "border border-[var(--border)] text-[var(--muted)] hover:border-[var(--brand-muted)]"
+                    }`}
+                  >
+                    {HK_PRESET_LABELS[p]}
+                    {data?.presetCounts?.[p] != null && (
+                      <span className="ml-1 opacity-70">({data.presetCounts[p]})</span>
+                    )}
+                  </button>
+                ))
+              : US_PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setUsPreset(p)}
+                    title={PRESET_DESCRIPTIONS[p]}
+                    className={`rounded-full px-3 py-1.5 text-xs transition ${
+                      usPreset === p
+                        ? "bg-[var(--brand)] text-white"
+                        : "border border-[var(--border)] text-[var(--muted)] hover:border-[var(--brand-muted)]"
+                    }`}
+                  >
+                    {PRESET_LABELS[p]}
+                    {data?.presetCounts?.[p] != null && (
+                      <span className="ml-1 opacity-70">({data.presetCounts[p]})</span>
+                    )}
+                  </button>
+                ))}
           </div>
-        )}
-
-        {blobRequired && (
-          <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-            <strong>需要 Vercel Blob 儲存</strong>
-            <p className="mt-1 text-xs text-amber-200/80">
-              Vercel → Storage → Blob → Connect → Redeploy。否則掃描結果無法保存。
-            </p>
-          </div>
-        )}
-
-        {scanning && (
-          <div className="mb-4">
-            <div className="mb-1 text-xs text-[var(--muted)]">
-              掃描 {universeLabel} {scanProgress.done}/{scanProgress.total}
-              {isHk && " · 每檔 5 次行情"}（請保持頁面開啟）
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--border)]">
-              <div
-                className={`h-full transition-all duration-300 ${isHk ? "bg-rose-500" : "bg-blue-500"}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
-
-        {loading && !scanning && (
-          <div className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
-            正在載入 {universeLabel} 掃描結果…
-          </div>
-        )}
-
-        {!loading && !data?.scannedAt && !scanning && !blobRequired && (
-          <div className="mb-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--panel)] p-6 text-center text-sm text-[var(--muted)]">
-            尚未掃描 {universeLabel}。點擊「開始掃描」將對 {symbolTotal} 檔計算
-            {isHk ? "多週期港股策略" : "技術指標"}
-            {scanEta}。
-          </div>
-        )}
-
-        <div className="mb-4 flex flex-wrap gap-2">
-          {isHk
-            ? HK_PRESETS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setHkPreset(p)}
-                  title={HK_PRESET_DESCRIPTIONS[p]}
-                  className={`rounded-full px-3 py-1.5 text-xs transition ${
-                    hkPreset === p
-                      ? "bg-rose-600 text-white"
-                      : "border border-[var(--border)] text-[var(--muted)] hover:border-rose-500/50"
-                  }`}
-                >
-                  {HK_PRESET_LABELS[p]}
-                  {data?.presetCounts?.[p] != null && (
-                    <span className="ml-1 opacity-70">({data.presetCounts[p]})</span>
-                  )}
-                </button>
-              ))
-            : US_PRESETS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setUsPreset(p)}
-                  title={PRESET_DESCRIPTIONS[p]}
-                  className={`rounded-full px-3 py-1.5 text-xs transition ${
-                    usPreset === p
-                      ? "bg-blue-600 text-white"
-                      : "border border-[var(--border)] text-[var(--muted)] hover:border-blue-500/50"
-                  }`}
-                >
-                  {PRESET_LABELS[p]}
-                  {data?.presetCounts?.[p] != null && (
-                    <span className="ml-1 opacity-70">({data.presetCounts[p]})</span>
-                  )}
-                </button>
-              ))}
-        </div>
-
-        <p className="mb-3 text-xs text-[var(--muted)]">
-          {isHk ? HK_PRESET_DESCRIPTIONS[hkPreset] : PRESET_DESCRIPTIONS[usPreset]}
-        </p>
-
-        {!loading && (data?.scannedAt || scanning) && (
-          <p className="mb-2 text-sm">
-            符合 <strong className="text-[var(--text)]">{filteredRows.length}</strong> 檔
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            {isHk ? HK_PRESET_DESCRIPTIONS[hkPreset] : PRESET_DESCRIPTIONS[usPreset]}
           </p>
-        )}
+        </div>
 
         {!loading &&
           (isHk ? (
-            <HkScreenerTable rows={filteredRows} sort={sort} dir={dir} onSort={handleSort} />
+            <HkScreenerTable
+              rows={filteredRows}
+              sort={sort}
+              dir={dir}
+              onSort={handleSort}
+              onAddWatchlist={handleAddWatchlist}
+              watchlistKeys={watchlistKeys}
+            />
           ) : (
-            <ScreenerTable rows={filteredRows} sort={sort} dir={dir} onSort={handleSort} />
+            <ScreenerTable
+              rows={filteredRows}
+              sort={sort}
+              dir={dir}
+              onSort={handleSort}
+              onAddWatchlist={handleAddWatchlist}
+              watchlistKeys={watchlistKeys}
+            />
           ))}
 
-        {scanProgress.failed.length > 0 && (
-          <p className="mt-3 text-xs text-amber-400">
-            {scanProgress.failed.length} 檔掃描失敗：
-            {scanProgress.failed.slice(0, 10).join(", ")}
-          </p>
+        {loading && !scanning && (
+          <div className="p-8 text-center text-sm text-[var(--muted)]">載入中…</div>
         )}
       </div>
+
+      {scanProgress.failed.length > 0 && (
+        <p className="mt-3 text-xs text-[var(--warning)]">
+          {scanProgress.failed.length} 檔掃描失敗：
+          {scanProgress.failed.slice(0, 10).join(", ")}
+        </p>
+      )}
     </div>
+  );
+}
+
+export default function ScreenerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-[var(--muted)]">載入篩選器…</div>
+      }
+    >
+      <ScreenerContent />
+    </Suspense>
   );
 }

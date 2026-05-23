@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "gen-symbols": "node scripts/gen-symbols.js",
     "share": "npx localtunnel --port 3000",
     "build": "next build",
     "start": "next start",

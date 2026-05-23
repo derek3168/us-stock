@@ -8,6 +8,7 @@ import { HkIndicatorCards } from "@/components/HkIndicatorCards";
 import { SignalPanel } from "@/components/SignalPanel";
 import { WeightedScorePanel } from "@/components/WeightedScorePanel";
 import { WuxianPanel } from "@/components/WuxianPanel";
+import { HkTradeLevelsPanel } from "@/components/HkTradeLevelsPanel";
 
 type Props = {
   symbol: string;
@@ -71,17 +72,21 @@ export function StockDetail({ symbol, market = "us", initial }: Props) {
               {currencyPrefix}
               {data.price.toFixed(2)} {isHk ? currency : ""}
             </span>
-            <span className={data.changePercent >= 0 ? "text-emerald-400" : "text-red-400"}>
+            <span
+              className={
+                data.changePercent >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"
+              }
+            >
               {data.changePercent >= 0 ? "+" : ""}
               {data.changePercent.toFixed(2)}% ({data.change >= 0 ? "+" : ""}
               {data.change.toFixed(2)})
             </span>
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+            <span className="rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-xs text-[var(--success)]">
               {isHk ? "共振" : "加權"} {data.weightedScore.total.toFixed(1)}/
               {data.weightedScore.max} · {data.weightedScore.summary}
             </span>
             {!isHk && data.wuxian.active && (
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+              <span className="rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs text-[var(--warning)]">
                 五線開花
               </span>
             )}
@@ -96,7 +101,7 @@ export function StockDetail({ symbol, market = "us", initial }: Props) {
                 onClick={() => setRange(r)}
                 className={`rounded-lg px-3 py-1.5 text-xs ${
                   range === r
-                    ? "bg-blue-600 text-white"
+                    ? "bg-[var(--brand)] text-white"
                     : "border border-[var(--border)] text-[var(--muted)]"
                 }`}
               >
@@ -113,7 +118,7 @@ export function StockDetail({ symbol, market = "us", initial }: Props) {
         <WeightedScorePanel score={data.weightedScore} title={isHk ? "多週期共振分" : undefined} />
         {!isHk && <WuxianPanel wuxian={data.wuxian} />}
         {isHk && (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 text-xs text-[var(--muted)]">
+          <div className="card p-4 text-xs text-[var(--muted)]">
             <strong className="text-[var(--text)]">操作時間框架</strong>
             <p className="mt-2">主圖為日線；入場以 15 分鐘收盤確認。掃描已整合 15/30/60 分、日、週線。</p>
           </div>
@@ -132,7 +137,13 @@ export function StockDetail({ symbol, market = "us", initial }: Props) {
         </div>
       </section>
 
-      <section className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 text-xs leading-relaxed text-[var(--muted)]">
+      {isHk && (
+        <section className="mt-4">
+          <HkTradeLevelsPanel price={data.price} />
+        </section>
+      )}
+
+      <section className="card mt-4 p-4 text-xs leading-relaxed text-[var(--muted)]">
         <strong className="text-[var(--text)]">
           {isHk ? "港股短線 checklist" : "實戰流程備忘"}
         </strong>

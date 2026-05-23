@@ -18,6 +18,8 @@ type Props = {
   sort: string;
   dir: string;
   onSort: (col: "score" | "change" | "symbol") => void;
+  onAddWatchlist?: (symbol: string) => void;
+  watchlistKeys?: Set<string>;
 };
 
 function SortHeader({
@@ -46,7 +48,7 @@ function SortHeader({
   );
 }
 
-export function HkScreenerTable({ rows, sort, dir, onSort }: Props) {
+export function HkScreenerTable({ rows, sort, dir, onSort, onAddWatchlist, watchlistKeys }: Props) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-8 text-center text-sm text-[var(--muted)]">
@@ -56,9 +58,9 @@ export function HkScreenerTable({ rows, sort, dir, onSort }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[880px] text-left text-sm">
-        <thead className="bg-[var(--panel)] text-xs text-[var(--muted)]">
+        <thead className="bg-[var(--bg)] text-xs text-[var(--muted)]">
           <tr>
             <th className="px-3 py-2">
               <SortHeader label="代碼" col="symbol" sort={sort} dir={dir} onSort={onSort} />
@@ -89,7 +91,7 @@ export function HkScreenerTable({ rows, sort, dir, onSort }: Props) {
             return (
               <tr
                 key={row.symbol}
-                className="border-t border-[var(--border)] hover:bg-white/[0.03]"
+                className="border-t border-[var(--border)] hover:bg-[var(--sidebar-active)]"
               >
                 <td className="px-3 py-2 font-semibold">{row.symbol}</td>
                 <td className="max-w-[140px] truncate px-3 py-2 text-[var(--muted)]">
@@ -99,13 +101,13 @@ export function HkScreenerTable({ rows, sort, dir, onSort }: Props) {
                   {row.price.toFixed(2)} HKD
                 </td>
                 <td
-                  className={`px-3 py-2 text-right font-mono ${up ? "text-emerald-400" : "text-red-400"}`}
+                  className={`px-3 py-2 text-right font-mono ${up ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
                 >
                   {up ? "+" : ""}
                   {row.changePercent.toFixed(2)}%
                 </td>
                 <td className="px-3 py-2">
-                  <span className="font-mono font-semibold text-emerald-400">
+                  <span className="font-mono font-semibold text-[var(--success)]">
                     {ws.total.toFixed(1)}
                   </span>
                   <span className="text-[var(--muted)]">/{ws.max}</span>
@@ -113,7 +115,7 @@ export function HkScreenerTable({ rows, sort, dir, onSort }: Props) {
                 </td>
                 <td className="px-3 py-2 text-xs">
                   {emaOk ? (
-                    <span className="text-emerald-400">EMA8 上</span>
+                    <span className="text-[var(--success)]">EMA8 上</span>
                   ) : (
                     <span className="text-[var(--muted)]">—</span>
                   )}
@@ -125,12 +127,24 @@ export function HkScreenerTable({ rows, sort, dir, onSort }: Props) {
                   {SIGNAL_LABELS[row.signal.level]}
                 </td>
                 <td className="px-3 py-2">
-                  <Link
-                    href={`/stock/${row.symbol}?market=hk`}
-                    className="text-xs text-blue-400 hover:underline"
-                  >
-                    詳情 →
-                  </Link>
+                  <div className="flex flex-col gap-1">
+                    <Link
+                      href={`/stock/${row.symbol}?market=hk`}
+                      className="text-xs text-[var(--brand)] hover:underline"
+                    >
+                      詳情 →
+                    </Link>
+                    {onAddWatchlist && (
+                      <button
+                        type="button"
+                        onClick={() => onAddWatchlist(row.symbol)}
+                        disabled={watchlistKeys?.has(`hk:${row.symbol}`)}
+                        className="text-left text-xs text-[var(--muted)] hover:text-[var(--brand)] disabled:opacity-40"
+                      >
+                        {watchlistKeys?.has(`hk:${row.symbol}`) ? "已在自選" : "+ 自選"}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

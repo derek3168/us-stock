@@ -91,6 +91,9 @@ export type ScreenerSnapshot = {
   scanning: boolean;
   progress: { done: number; total: number; failed: string[]; offset?: number };
   results: ScanResultItem[];
+  /** 與 cache-version.ts 同步，過舊則提示重掃 */
+  schemaVersion?: number;
+  universe?: string;
 };
 
 export type FilterPreset =

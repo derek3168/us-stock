@@ -4,6 +4,7 @@ import { evaluateSignal } from "./signals";
 import { yahooFetchCandidates } from "./symbols";
 import { computeWeightedScore } from "./weighted-score";
 import { evaluateWuxianKaihua } from "./wuxian-kaihua";
+import { fetchWithRetry } from "./yahoo-fetch";
 
 type YahooMeta = {
   symbol?: string;
@@ -37,10 +38,7 @@ async function fetchChartForSymbol(
   range: "3mo" | "6mo" | "1y"
 ): Promise<{ bars: OHLCV[]; meta: YahooMeta }> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=${range}`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-    next: { revalidate: 300 },
-  });
+  const res = await fetchWithRetry(url, { next: { revalidate: 300 } });
 
   if (!res.ok) throw new Error(`無法取得 ${sym} 行情 (${res.status})`);
 

@@ -2,6 +2,7 @@ import type { ScanResultItem, ScreenerSnapshot } from "./types";
 import { fetchStockBars } from "./market";
 import { scanHkSymbol } from "./hk-market";
 import { readCache, writeCache } from "./cache";
+import { CACHE_SCHEMA_VERSION } from "./cache-version";
 import { getUniverseSymbolCount, getUniverseSymbols, isHkUniverse, type Universe } from "./universe";
 
 const FETCH_BATCH = 8;
@@ -30,7 +31,7 @@ export async function scanSymbol(
     return scanHkSymbol(symbol, name);
   }
   try {
-    const analysis = await fetchStockBars(symbol, "6mo");
+    const analysis = await fetchStockBars(symbol, "1y");
     const entryPassed = analysis.signal.checks.filter(
       (c) =>
         c.passed &&
@@ -69,6 +70,8 @@ export async function initScan(universe: Universe = "sp500"): Promise<ScreenerSn
     scanning: true,
     progress: { done: 0, total, failed: [], offset: 0 },
     results: [],
+    schemaVersion: CACHE_SCHEMA_VERSION,
+    universe,
   };
   await writeCache(snapshot, universe);
   return snapshot;
@@ -137,6 +140,8 @@ export async function runScanChunk(universe: Universe = "sp500"): Promise<Screen
       offset: newOffset,
     },
     results,
+    schemaVersion: CACHE_SCHEMA_VERSION,
+    universe,
   };
 
   await writeCache(snapshot, universe);

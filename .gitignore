@@ -2,4 +2,4 @@ node_modules
 .next
 .env*.local
 .DS_Store
-data/screener-cache.json
+data/screener-cache*.json

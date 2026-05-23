@@ -1,6 +1,7 @@
 import type { OHLCV, ScanResultItem, StockAnalysis } from "./types";
 import { normalizeHkSymbol, yahooHkFetchCandidates } from "./hk-symbols";
 import { evaluateHkStrategy, hkEmptyWuxian, type HkTimeframeBars } from "./hk-signals";
+import { delay, fetchWithRetry } from "./yahoo-fetch";
 
 type YahooMeta = {
   symbol?: string;
@@ -45,10 +46,7 @@ async function fetchHkChart(
   range: string
 ): Promise<{ bars: OHLCV[]; meta: YahooMeta }> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${interval}&range=${range}`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-    next: { revalidate: 120 },
-  });
+  const res = await fetchWithRetry(url, { next: { revalidate: 120 } });
 
   if (!res.ok) throw new Error(`無法取得 ${yahooSym} ${interval} (${res.status})`);
 
@@ -83,15 +81,15 @@ async function fetchHkChart(
 }
 
 async function fetchHkTimeframes(yahooSym: string): Promise<{ bars: HkTimeframeBars; meta: YahooMeta }> {
-  const entries = await Promise.all(
-    TF_CONFIG.map(async (cfg) => {
-      const { bars, meta } = await fetchHkChart(yahooSym, cfg.interval, cfg.range);
-      if (bars.length < cfg.minBars) {
-        throw new Error(`${yahooSym} ${cfg.interval} 數據不足 (${bars.length})`);
-      }
-      return { key: cfg.key, bars, meta };
-    })
-  );
+  const entries = [];
+  for (const cfg of TF_CONFIG) {
+    const { bars, meta } = await fetchHkChart(yahooSym, cfg.interval, cfg.range);
+    if (bars.length < cfg.minBars) {
+      throw new Error(`${yahooSym} ${cfg.interval} 數據不足 (${bars.length})`);
+    }
+    entries.push({ key: cfg.key, bars, meta });
+    await delay(80);
+  }
 
   const bars = {} as HkTimeframeBars;
   let meta: YahooMeta = {};

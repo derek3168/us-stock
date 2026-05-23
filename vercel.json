@@ -7,11 +7,32 @@
     "src/app/api/scan/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/scan/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/cache/route.ts": {
       "maxDuration": 30
     },
     "src/app/api/stock/[symbol]/route.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/scan?universe=hk_hsi",
+      "schedule": "0 13 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan?universe=nasdaq100",
+      "schedule": "20 13 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan?universe=sp500",
+      "schedule": "0 14 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan?universe=sp500",
+      "schedule": "0 15 * * 1-5"
+    }
+  ]
 }

@@ -17,8 +17,10 @@ export async function GET(request: NextRequest) {
   return jsonNoStore({
     universe,
     ...cache,
+    schemaVersion: cache.schemaVersion,
     storage: process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "file",
     blobRequired: Boolean(process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN),
+    cronEnabled: Boolean(process.env.CRON_SECRET),
   });
 }
 
