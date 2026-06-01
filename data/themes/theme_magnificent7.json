@@ -1,0 +1,36 @@
+{
+  "id": "theme_magnificent7",
+  "label": "美股七王🏆",
+  "updatedAt": "2026-06-01",
+  "count": 7,
+  "symbols": [
+    {
+      "symbol": "MSFT",
+      "name": "微軟"
+    },
+    {
+      "symbol": "AMZN",
+      "name": "亞馬遜"
+    },
+    {
+      "symbol": "AAPL",
+      "name": "蘋果"
+    },
+    {
+      "symbol": "GOOG",
+      "name": "谷歌-C"
+    },
+    {
+      "symbol": "META",
+      "name": "Meta Platforms"
+    },
+    {
+      "symbol": "TSLA",
+      "name": "特斯拉"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "英偉達"
+    }
+  ]
+}

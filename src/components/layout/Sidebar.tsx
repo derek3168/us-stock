@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  UNIVERSES,
+  INDEX_UNIVERSES,
+  THEME_UNIVERSES,
   UNIVERSE_LABELS,
   getUniverseSymbolCount,
   isHkUniverse,
@@ -87,7 +88,7 @@ export function Sidebar({ mobileOpen, onClose }: Props) {
             市場篩選
           </p>
           <div className="space-y-0.5">
-            {UNIVERSES.map((u) => (
+            {INDEX_UNIVERSES.map((u) => (
               <div key={u} onClick={onClose}>
                 <NavItem
                   href={`/screener?universe=${u}`}
@@ -95,6 +96,23 @@ export function Sidebar({ mobileOpen, onClose }: Props) {
                   active={screenerActive && currentUniverse === u}
                   badge={String(getUniverseSymbolCount(u))}
                   chip={isHkUniverse(u) ? "HK" : "US"}
+                />
+              </div>
+            ))}
+          </div>
+
+          <p className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+            主題板塊
+          </p>
+          <div className="space-y-0.5">
+            {THEME_UNIVERSES.map((u) => (
+              <div key={u} onClick={onClose}>
+                <NavItem
+                  href={`/screener?universe=${u}`}
+                  label={UNIVERSE_LABELS[u]}
+                  active={screenerActive && currentUniverse === u}
+                  badge={String(getUniverseSymbolCount(u))}
+                  chip="US"
                 />
               </div>
             ))}

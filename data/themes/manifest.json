@@ -1,0 +1,44 @@
+{
+  "themes": [
+    {
+      "id": "theme_space_rocket",
+      "label": "太空火箭🚀",
+      "count": 13
+    },
+    {
+      "id": "theme_storage",
+      "label": "存儲股💽",
+      "count": 9
+    },
+    {
+      "id": "theme_yao",
+      "label": "妖股👻",
+      "count": 8
+    },
+    {
+      "id": "theme_magnificent7",
+      "label": "美股七王🏆",
+      "count": 7
+    },
+    {
+      "id": "theme_semiconductor",
+      "label": "晶片半導體",
+      "count": 15
+    },
+    {
+      "id": "theme_rare_earth",
+      "label": "稀土",
+      "count": 11
+    },
+    {
+      "id": "theme_quantum",
+      "label": "量子計算🧮",
+      "count": 6
+    },
+    {
+      "id": "theme_ai_app",
+      "label": "Ai應用股",
+      "count": 11
+    }
+  ]
+}

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import type { ScanResultItem } from "@/lib/types";
 import { SIGNAL_LABELS } from "@/lib/signals";
+import { THEME_COLUMN_META, symbolBelongsToTheme } from "@/lib/theme-symbols";
+import type { ThemeUniverse } from "@/lib/universe-shared";
 
 const LEVEL_CLASS: Record<string, string> = {
   strong_buy: "text-emerald-400",
@@ -20,7 +22,24 @@ type Props = {
   onSort: (col: "score" | "change" | "symbol") => void;
   onAddWatchlist?: (symbol: string) => void;
   watchlistKeys?: Set<string>;
+  /** 在 S&P / NASDAQ 列表顯示 8 個主題欄位 */
+  showThemeColumns?: boolean;
 };
+
+function ThemeCell({ symbol, theme }: { symbol: string; theme: ThemeUniverse }) {
+  const hit = symbolBelongsToTheme(symbol, theme);
+  return (
+    <td className="px-1 py-2 text-center text-xs">
+      {hit ? (
+        <span className="text-[var(--brand)]" title="屬於此板塊">
+          ✓
+        </span>
+      ) : (
+        <span className="text-[var(--border)]">·</span>
+      )}
+    </td>
+  );
+}
 
 function SortHeader({
   label,
@@ -48,7 +67,15 @@ function SortHeader({
   );
 }
 
-export function ScreenerTable({ rows, sort, dir, onSort, onAddWatchlist, watchlistKeys }: Props) {
+export function ScreenerTable({
+  rows,
+  sort,
+  dir,
+  onSort,
+  onAddWatchlist,
+  watchlistKeys,
+  showThemeColumns = false,
+}: Props) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-8 text-center text-sm text-[var(--muted)]">
@@ -59,13 +86,25 @@ export function ScreenerTable({ rows, sort, dir, onSort, onAddWatchlist, watchli
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[800px] text-left text-sm">
+      <table
+        className={`w-full text-left text-sm ${showThemeColumns ? "min-w-[1100px]" : "min-w-[800px]"}`}
+      >
         <thead className="bg-[var(--bg)] text-xs text-[var(--muted)]">
           <tr>
             <th className="px-3 py-2">
               <SortHeader label="代碼" col="symbol" sort={sort} dir={dir} onSort={onSort} />
             </th>
             <th className="px-3 py-2">名稱</th>
+            {showThemeColumns &&
+              THEME_COLUMN_META.map((col) => (
+                <th
+                  key={col.id}
+                  className="w-9 px-1 py-2 text-center font-normal"
+                  title={col.label}
+                >
+                  {col.abbr}
+                </th>
+              ))}
             <th className="px-3 py-2 text-right">價格</th>
             <th className="px-3 py-2 text-right">
               <SortHeader label="漲跌%" col="change" sort={sort} dir={dir} onSort={onSort} />
@@ -91,6 +130,10 @@ export function ScreenerTable({ rows, sort, dir, onSort, onAddWatchlist, watchli
                 <td className="max-w-[120px] truncate px-3 py-2 text-[var(--muted)]">
                   {row.name ?? "—"}
                 </td>
+                {showThemeColumns &&
+                  THEME_COLUMN_META.map((col) => (
+                    <ThemeCell key={col.id} symbol={row.symbol} theme={col.id} />
+                  ))}
                 <td className="px-3 py-2 text-right font-mono">${row.price.toFixed(2)}</td>
                 <td
                   className={`px-3 py-2 text-right font-mono ${up ? "text-[var(--success)]" : "text-[var(--danger)]"}`}

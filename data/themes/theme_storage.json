@@ -1,0 +1,44 @@
+{
+  "id": "theme_storage",
+  "label": "存儲股💽",
+  "updatedAt": "2026-06-01",
+  "count": 9,
+  "symbols": [
+    {
+      "symbol": "DRAM",
+      "name": "Roundhill Memory ETF"
+    },
+    {
+      "symbol": "GFS",
+      "name": "GlobalFoundries"
+    },
+    {
+      "symbol": "MU",
+      "name": "美光科技"
+    },
+    {
+      "symbol": "SNDK",
+      "name": "閃迪"
+    },
+    {
+      "symbol": "WDC",
+      "name": "西部數據"
+    },
+    {
+      "symbol": "STX",
+      "name": "希捷科技"
+    },
+    {
+      "symbol": "ARM",
+      "name": "Arm Holdings"
+    },
+    {
+      "symbol": "IBM",
+      "name": "IBM Corp"
+    },
+    {
+      "symbol": "INTC",
+      "name": "英特爾"
+    }
+  ]
+}

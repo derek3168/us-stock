@@ -1,0 +1,60 @@
+{
+  "id": "theme_space_rocket",
+  "label": "太空火箭🚀",
+  "updatedAt": "2026-06-01",
+  "count": 13,
+  "symbols": [
+    {
+      "symbol": "NASA",
+      "name": "Tema Space Innovators ETF"
+    },
+    {
+      "symbol": "PL",
+      "name": "Planet Labs PBC"
+    },
+    {
+      "symbol": "DXYZ",
+      "name": "Destiny Tech100"
+    },
+    {
+      "symbol": "RKLB",
+      "name": "Rocket Lab"
+    },
+    {
+      "symbol": "ASTS",
+      "name": "AST SpaceMobile"
+    },
+    {
+      "symbol": "SPIR",
+      "name": "Spire Global"
+    },
+    {
+      "symbol": "VOYG",
+      "name": "Voyager Technologies"
+    },
+    {
+      "symbol": "LUNR",
+      "name": "Intuitive Machines"
+    },
+    {
+      "symbol": "RDW",
+      "name": "Redwire"
+    },
+    {
+      "symbol": "FLY",
+      "name": "Firefly Aerospace"
+    },
+    {
+      "symbol": "SPCE",
+      "name": "維珍銀河"
+    },
+    {
+      "symbol": "KULR",
+      "name": "KULR Technology"
+    },
+    {
+      "symbol": "SIDU",
+      "name": "Sidus Space"
+    }
+  ]
+}

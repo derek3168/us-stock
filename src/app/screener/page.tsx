@@ -30,6 +30,7 @@ import {
   UNIVERSE_SYMBOLS_JSON,
   getUniverseSymbolCount,
   isHkUniverse,
+  isIndexUniverse,
   parseUniverse,
   type Universe,
 } from "@/lib/universe-shared";
@@ -559,6 +560,7 @@ function ScreenerContent() {
               onSort={handleSort}
               onAddWatchlist={handleAddWatchlist}
               watchlistKeys={watchlistKeys}
+              showThemeColumns={isIndexUniverse(universe)}
             />
           ))}
 

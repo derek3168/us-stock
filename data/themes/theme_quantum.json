@@ -1,0 +1,32 @@
+{
+  "id": "theme_quantum",
+  "label": "量子計算🧮",
+  "updatedAt": "2026-06-01",
+  "count": 6,
+  "symbols": [
+    {
+      "symbol": "GFS",
+      "name": "GlobalFoundries"
+    },
+    {
+      "symbol": "IBM",
+      "name": "IBM Corp"
+    },
+    {
+      "symbol": "QBTS",
+      "name": "D-Wave Quantum"
+    },
+    {
+      "symbol": "QUBT",
+      "name": "Quantum Computing"
+    },
+    {
+      "symbol": "RGTI",
+      "name": "Rigetti Computing"
+    },
+    {
+      "symbol": "INFQ",
+      "name": "Infleqtion"
+    }
+  ]
+}
